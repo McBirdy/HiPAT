@@ -20,10 +20,6 @@ class Crtc():
         self.ser = Serial(address, 4800, timeout=3)
         self.ser.close()
         
-    def __print__(self):
-        """print serial buffer."""
-        print self.ser.read(self.ser.inWaiting())
-        
     def send(self, text, response='PSRFTXT,(ACK)'):
         """Function used to write text to the serial port. A response from the CRTC is always expected, and if none is specified it will return 1.
         
