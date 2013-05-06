@@ -86,7 +86,23 @@ class Crtc():
             else:
                 return 0                
     
-    def adjust_ms():
+    def adjust_ms(self, delta):
+        """adjust_ms lets you adjust the oscillator delta number of milliseconds.
+        
+        delta: int with the number of milliseconds to adjust
+        returns None        
+        """
+        #Create a list containing all the millisecond steps needed
+        if delta > 0:
+            delta_list = range(0,int(round(delta,0)))   #make sure delta is a whole number
+            sign = '+'
+        elif delta < 0:
+            delta_list = range(int(round(delta,0)),0)   #make sure delta is a whole number
+            sign = '-'
+        for number in delta_list:
+            status = self.send(sign)
+            time.sleep(0.01)
+        return
     
     def freq_adj():
         
