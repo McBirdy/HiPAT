@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/python
 
 """crtc.py is a class used to handle all communication with the CRTC.
 It will send and receive information.
@@ -8,6 +8,9 @@ from serial import Serial
 from timeout import timeout #import the timeout decorator
 import re
 import datetime
+import time
+import shelve
+import math
 
 class Crtc():
     """Crtc is the class handling all the communication over the serial interface.
@@ -20,9 +23,12 @@ class Crtc():
         self.ser = Serial(address, 4800, timeout=3)
         self.ser.close()
         
-    def __print__(self):
+    def __str__(self):
         """print serial buffer."""
-        print self.ser.read(self.ser.inWaiting())
+        self.ser.open()
+        output =  self.ser.readline()
+        self.ser.close()
+        return output
         
     def send(self, text, response='PSRFTXT,(ACK)'):
         """Function used to write text to the serial port. A response from the CRTC is always expected, and if none is specified it will return 1.
@@ -32,18 +38,21 @@ class Crtc():
         returns: answer string if OK, 1 if no response was received.
         """
         #first the text is written, one letter at the time
+        self.ser.open()
         for letter in text:
+            time.sleep(0.4)
             self.ser.write(letter)
-            time.sleep(0.01)
     
         #then we wait for the response
         try:
             answer = self.receive(response)    
             return answer
-        except TimeoutError:
+        except:
             self.ser.write('1111111111')    #the CRTC can hang while expecting more input
+            self.ser.close()
             return 1
-        
+            
+    @timeout(3) #this function will timeout after 3 seconds
     def receive(self, regex):
         """Function used to extract a received answer from the serial port. User must provide a regex if a certain type of message is to be received.
         If it times out a TimeoutError is raised.
@@ -52,7 +61,7 @@ class Crtc():
         returns: string of match
         """
         global ser_buffer
-        @timeout(3)
+        self.ser.open()
         while True:
             ser_buffer = ser_buffer + self.ser.read(self.ser.inWaiting()) #fills the buffer
             if '\n' in ser_buffer:  #if a complete line is received
@@ -61,6 +70,7 @@ class Crtc():
                     match = re.search(regex, lines[-2])
                     if match:   #if regex matches
                         ser_buffer = lines[-1]
+                        self.ser.close()
                         return match.group(1)   #return match and exit
                 ser_buffer = lines[-1]  #if lines[-2] doesn't exist we keep lines[-1]
         
@@ -104,5 +114,57 @@ class Crtc():
             time.sleep(0.01)
         return
     
-    def freq_adj():
+    def freq_adj(crtc_restart=False, offset=0):
+        """frequency adjust will monitor the long term stability of the oscillator, and will attempt to adjust the frequency to improve stability.
+        
+        crtc_restart: Indicates if the crtc has lost power thus having reset all previous frequency adjustments.
+        returns: None
+        """
+        
+        #The time of the last frequency adjustment and adjustment steps are kept in a shelve.
+        db = shelve.open('/export/home/hipat/monitor_shelve','c')
+        
+        #Now the number of necessary steps are calculated.
+        if crtc_restart:    #if the crtc has restarted we reuse the saved number of steps
+            steps = db['freq_adj'][1]
+            if steps < 0:
+                sign = '-'
+            else:
+                sign = '+'
+        elif not (-1 < offset < 1): #we calculate the steps if the offset is larger than +- 1ms
+            time_1 = db['freq_adj'][0]  #time of last frequency adjustment
+            time_dif = datetime.datetime.now() - time_1 #time it has taken to drift offset
+            time_dif = time_dif.total_seconds() #convert time delta to seconds
+            error_size = time_dif / float(offset)   #error_size indicates how quickly it has drifted
+            steps = 20000*math.e**(-abs(error_size)/170000.0)    #large error_size, more steps
+            if offset < 0:  #if negative offset, steps should be negative
+                sign = '-'
+            else:
+                sign = '+'
+        
+        #The final step is to write the steps to the CRTC. 
+        #The steps are split into 1000s and 10s.
+        steps = round(steps, -1)    #round steps to closest 10
+        thousands, rest = divmod(abs(steps), 1000)   #number of thousand steps
+        tens, rest = divmod(rest, 10)   #number of ten steps
+        
+        if sign == '+':  #adjust frequency up
+            frequency_adjustment = [[thousands, 'o'],[tens, 'x']]
+        elif sign == '-':    #adjust frequency down
+            frequency_adjustment = [[thousands, 'i'],[tens, 'z']]
+            steps = steps * -1  #negative adjustment was performed
+        
+        for amount in frequency_adjustment: #first treat thousands, then do tens.
+            for step in range(int(amount[0])):  #use send multiple times.
+                self.send(amount[1])    #amount[1] is the letter to be sent to the crtc.
+        
+        #updating shelve file with the new information
+        if crtc_restart:
+            db['freq_adj'] = [datetime.datetime.now(), steps]
+        else:
+            db['freq_adj'] = [datetime.datetime.now(), db['freq_adj'][1] + steps]
+        return
+        
+        
+        
         
