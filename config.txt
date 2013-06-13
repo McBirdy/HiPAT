@@ -1,0 +1,2 @@
+serial_address: "/dev/ttyU0"
+program_path: "/export/home/hipat/hipat_test/"

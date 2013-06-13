@@ -6,18 +6,21 @@ It will send and receive information.
 
 from serial import Serial
 from timeout import timeout #import the timeout decorator
+from config import config #configuration dictionary
 import re
 import datetime
 import time
 import shelve
 import math
+import sys
+
+ser_buffer = ''     #Global receive buffer
 
 class Crtc():
     """Crtc is the class handling all the communication over the serial interface.
     """
-    ser_buffer = ''     #Global receive buffer
     
-    def __init__(self, address='/dev/ttyU0'):
+    def __init__(self, address=config['serial_address']):
         """Initiating the serial port
         """
         self.ser = Serial(address, 4800, timeout=3)
@@ -42,7 +45,7 @@ class Crtc():
         for letter in text:
             time.sleep(0.4)
             self.ser.write(letter)
-    
+          
         #then we wait for the response
         try:
             answer = self.receive(response)    
@@ -61,7 +64,7 @@ class Crtc():
         returns: string of match
         """
         global ser_buffer
-        self.ser.open()
+        #self.ser.open()    #it is opened by the send process.
         while True:
             ser_buffer = ser_buffer + self.ser.read(self.ser.inWaiting()) #fills the buffer
             if '\n' in ser_buffer:  #if a complete line is received
@@ -118,11 +121,12 @@ class Crtc():
         """frequency adjust will monitor the long term stability of the oscillator, and will attempt to adjust the frequency to improve stability.
         
         crtc_restart: Indicates if the crtc has lost power thus having reset all previous frequency adjustments.
+        offset: if the offset has been larger than +-1ms we perform a new frequency adjustment. The offset is therefore needed.
         returns: None
         """
         
         #The time of the last frequency adjustment and adjustment steps are kept in a shelve.
-        db = shelve.open('/export/home/hipat/monitor_shelve','c')
+        db = shelve.open(config['program_path']+monitor_shelve,'c')
         
         #Now the number of necessary steps are calculated.
         if crtc_restart:    #if the crtc has restarted we reuse the saved number of steps
@@ -164,6 +168,34 @@ class Crtc():
         else:
             db['freq_adj'] = [datetime.datetime.now(), db['freq_adj'][1] + steps]
         return
+
+
+def main():
+    """
+    
+    """ 
+    
+    #Init serial port
+    ser = Crtc()
+    
+    #Check if crtc has restarted since last time
+    crtc_restart = ser.send('p', 'PSRFTXT,(Y|N)')
+    if crtc_restart == 'Y':
+        self.date_time(0)
+        #Must perform frequency adjustment with previous freq setting
+        sys.exit()
+    #freq_adj_offset = get_offset('s1h')    #Offset before ms adjustments are made.
+        
+    #Adjust time and date
+    
+    
+    #Adjust ms
+    
+    #Frequency adjustment       
+        
+if __name__ == '__main__':
+    main()
+        
         
         
         
