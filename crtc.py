@@ -207,22 +207,22 @@ def main():
     crtc_restart = ser.send('p', 'PSRFTXT,(Y|N)')
     if crtc_restart == 'Y':
         #set the date and time, and reset the previous freq_adj
-        self.date_time(0)
-        self.freq_adj(True) 
+        ser.date_time(0)
+        ser.freq_adj(True) 
         sys.exit()
     freq_adj_offset = get_offset('s1h') #Offset before ms adjustments are made.
         
     #Adjust time and date
     if -200 > get_offset('s1h') or get_offset('s1h') > 200:
         delta = get_offset('local')
-        self.date_time(delta)
+        ser.date_time(delta)
         time.sleep(4000)
     print "Date and Time adjusted"
     
     #Adjust ms
     while round(get_offset('s1h'),1) > 1 or round(get_offset('s1h'),1) < -1:
         delta = -get_offset('s1h')
-        self.adjust_ms(delta)
+        ser.adjust_ms(delta)
         time.sleep(4000)
     print "Milliseconds adjusted"
     

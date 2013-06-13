@@ -26,13 +26,13 @@ def scan_config(defaults):
 def create_dictionary():
     defaults = {
         # Address for the serial port
-        'serial_address': "/dev/ttyU0"
+        'serial_address': "/dev/ttyU0",
         
         # Program path for the program
-        'program_path': "/export/home/hipat/hipat_test"
+        'program_path': "/export/home/hipat/hipat_test",
         
         # Reference NTP server
-        'hipat_reference': "158.112.116.41"
+        'hipat_reference': "158.112.116.41",
     }
     return defaults
     
