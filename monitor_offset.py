@@ -36,7 +36,7 @@ def save(value, tov):
 
     return: None
     """
-    db = shelve.open(config['program_path']+monitor_shelve,'c')
+    db = shelve.open(config['program_path']+'monitor_shelve','c')
     if tov == 'txx' or tov == 'sxd':
 	temp = [value]
 	for x in db[tov]:
@@ -61,7 +61,7 @@ def initialize_shelf(reset = False):
     """
 
     if reset == False:
-	db = shelve.open(config['program_path']+monitor_shelve, 'c')
+	db = shelve.open(config['program_path']+'monitor_shelve', 'c')
 	temp = db['txx']
         del temp[99:]
 	db['txx'] = temp
@@ -70,7 +70,7 @@ def initialize_shelf(reset = False):
 	db['sxd'] = temp
 	db.close()
     elif reset == True:
-	db = shelve.open(config['program_path']+monitor_shelve, 'n')
+	db = shelve.open(config['program_path']+'monitor_shelve', 'n')
         db['txx'] = []
         db['srw'] = 0
         db['s24h'] = 0
@@ -96,7 +96,7 @@ def statistics():
     return: None
     """
 
-    db = shelve.open(config['program_path']+monitor_shelve)
+    db = shelve.open(config['program_path']+'monitor_shelve')
 
     #last 1 hour calculation
     sum = 0.0
@@ -107,7 +107,7 @@ def statistics():
     db.close
 
     #last 24 hour calculation
-    db = shelve.open(config['program_path']+monitor_shelve)
+    db = shelve.open(config['program_path']+'monitor_shelve')
     sum = 0.0
     for x in db['txx']:
 	sum += x
@@ -119,13 +119,13 @@ def statistics():
     now = datetime.datetime.utcnow().strftime("%H:%M")
     if now == "00:15":
 	#Statistics for the last day
-	db = shelve.open(config['program_path']+monitor_shelve)
+	db = shelve.open(config['program_path']+'monitor_shelve')
 	day = db['s24h']  #we already calculated the average for the last 24 hours
 	save(day, 'sxd')
 	db.close()
 
 	#Statistics for the last 7 days
-	db = shelve.open(config['program_path']+monitor_shelve)
+	db = shelve.open(config['program_path']+'monitor_shelve')
 	sum = 0.0
 	for x in db['sxd']:
 	    sum += x
@@ -139,7 +139,7 @@ def statistics():
 	today_week = today.isocalendar()[:2]
 	yesterday_week = yesterday.isocalendar()[:2]
 	if today_week != yesterday_week:   #Checks if yesterday was a different week and year than today
-	    db = shelve.open(config['program_path']+monitor_shelve)
+	    db = shelve.open(config['program_path']+'monitor_shelve')
 	    week = db['srw']   #we already calculated the last 7 days average
 	    save(week, 'sw')
 	    db.close()
@@ -181,7 +181,7 @@ def main():
 	if option == "reset_database":
 	    reset = True
         if option == "print_database":
-            db = shelve.open(config['program_path']+monitor_shelve)
+            db = shelve.open(config['program_path']+'monitor_shelve')
             print db
             sys.exit() 
         if option == "local_offset":
@@ -192,7 +192,7 @@ def main():
     save(get_offset(True), 'txx')
     print get_offset(True)
     statistics()
-    db = shelve.open(config['program_path']+monitor_shelve)
+    db = shelve.open(config['program_path']+'monitor_shelve')
     print db
 
 if __name__ == '__main__':
