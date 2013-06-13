@@ -6,7 +6,8 @@ It will send and receive information.
 
 from serial import Serial
 from timeout import timeout #import the timeout decorator
-from config import config #configuration dictionary
+from config import config   #configuration dictionary
+import monitor_offset       #offset to reference server commands
 import re
 import datetime
 import time
@@ -126,7 +127,7 @@ class Crtc():
         """
         
         #The time of the last frequency adjustment and adjustment steps are kept in a shelve.
-        db = shelve.open(config['program_path']+monitor_shelve,'c')
+        db = shelve.open(config['program_path']+'monitor_shelve','c')
         
         #Now the number of necessary steps are calculated.
         if crtc_restart:    #if the crtc has restarted we reuse the saved number of steps
@@ -170,6 +171,30 @@ class Crtc():
         return
 
 
+
+def get_offset(data):
+    """get_offset will access a part of the monitor_shelve database and return the value.
+    The different values that can be accessed are:
+    txx:    time value recorded every 15 minutes. xx = value between 1 and 99
+    srw:    statistics of the previous 7 days. Save Running Week
+    s1h:    statistics of the previous hour. Save 1 Hour
+    s24h:   statistics of the previous 24 hours. Save 24 Hours
+    sxd:    statistics for a day. x specifies a value between 1 and 9
+    sw:     statistics for a week
+    local:  gives a real time offset from the local time to the ref time
+    
+    return: offset in milliseconds
+    """
+    db = shelve.open(config['program_path']+'monitor_shelve')
+    if data == 'txx' or data == 'sxd':
+        value = db[data][0]
+    elif data == 'local':
+        value = monitor_offset.get_offset(False)
+    else:
+        value = db[data]
+    return value
+    
+
 def main():
     """
     
@@ -181,15 +206,25 @@ def main():
     #Check if crtc has restarted since last time
     crtc_restart = ser.send('p', 'PSRFTXT,(Y|N)')
     if crtc_restart == 'Y':
+        #set the date and time, and reset the previous freq_adj
         self.date_time(0)
-        #Must perform frequency adjustment with previous freq setting
+        self.freq_adj(True) 
         sys.exit()
-    #freq_adj_offset = get_offset('s1h')    #Offset before ms adjustments are made.
+    freq_adj_offset = get_offset('s1h') #Offset before ms adjustments are made.
         
     #Adjust time and date
-    
+    if -200 > get_offset('s1h') or get_offset('s1h') > 200:
+        delta = get_offset('local')
+        self.date_time(delta)
+        time.sleep(4000)
+    print "Date and Time adjusted"
     
     #Adjust ms
+    while round(get_offset('s1h'),1) > 1 or round(get_offset('s1h'),1) < -1:
+        delta = -get_offset('s1h')
+        self.adjust_ms(delta)
+        time.sleep(4000)
+    print "Milliseconds adjusted"
     
     #Frequency adjustment       
         

@@ -17,7 +17,7 @@ from config import config
 #Global variables
 ntpq_output = commands.getstatusoutput('ntpq -pn')[1]
 try:
-    ref_server = re.search('([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\s+\.REF\.', \
+    ref_server = re.search(config['hipat_reference'], \
 		       ntpq_output).group(1)
 except:
     print "No REF server is listed \nPlease edit /etc/ntp.conf"

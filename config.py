@@ -30,6 +30,9 @@ def create_dictionary():
         
         # Program path for the program
         'program_path': "/export/home/hipat/hipat_test"
+        
+        # Reference NTP server
+        'hipat_reference': "158.112.116.41"
     }
     return defaults
     
