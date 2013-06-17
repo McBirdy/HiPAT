@@ -163,8 +163,8 @@ def get_offset(option):
 	    offset = re.findall(r'([\d.-]*)\s+[\d.-]*\n', output)
 	    offset_osc = float(offset[0])
 	    return offset_osc - offset_ref
-        else:
-            return offset_ref
+    else:
+        return offset_ref
     except:
         sys.exit()
 

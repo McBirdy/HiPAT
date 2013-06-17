@@ -44,7 +44,7 @@ class Crtc():
         #first the text is written, one letter at the time
         self.ser.open()
         for letter in text:
-            time.sleep(0.4)
+            time.sleep(0.01)
             self.ser.write(letter)
           
         #then we wait for the response
@@ -189,7 +189,7 @@ def get_offset(data):
     if data == 'txx' or data == 'sxd':
         value = db[data][0]
     elif data == 'local':
-        value = monitor_offset.get_offset(False)
+        value = monitor_offset.get_offset(True)
     else:
         value = db[data]
     return value
@@ -221,7 +221,7 @@ def main():
     
     #Adjust ms
     while round(get_offset('s1h'),1) > 1 or round(get_offset('s1h'),1) < -1:
-        delta = -get_offset('s1h')
+        delta = -get_offset('s1h')  #- because adjust in the opposite direction
         ser.adjust_ms(delta)
         time.sleep(4000)
     print "Milliseconds adjusted"
