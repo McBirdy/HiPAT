@@ -18,7 +18,7 @@ from config import config
 ntpq_output = commands.getstatusoutput('ntpq -pn')[1]
 try:
     ref_server = re.search(config['hipat_reference'], \
-		       ntpq_output).group(1)
+		       ntpq_output).group()
 except:
     print "No REF server is listed \nPlease edit /etc/ntp.conf"
     sys.exit()
@@ -76,6 +76,7 @@ def initialize_shelf(reset = False):
         db['s24h'] = 0
         db['s1h'] = 0
         db['sxd'] = []
+        db['freq_adj'] = [datetime.datetime.now(), 0]
 	db.close()
         sys.exit()
 
