@@ -1,17 +1,18 @@
-#!/usr/local/bin/python
+#!/usr/bin/python
 
 """Will test the functions of the crtc class
 """
 
-from crtc import Crtc
+#from crtc import Crtc
 import re
-
-def test_print():
-    expected = re.compile('\$GPRMC,\d{6}\.\d{3},A,0{4}\.0{4},N,0{5}\.0{4},W,,,\d{6},,\*\x{2}')
-    
+import sys
 
 def main():
-    ser = Crtc()
+    #ser = Crtc()
+    options = sys.argv[1]
+    print options
+    a = sys.argv[2]
+    print a
     
     
 
