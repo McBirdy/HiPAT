@@ -31,12 +31,12 @@ def get_offset():
 	offset_ref = float(offset_ref.group(1))
     return offset_ref
     
-def avg1(compare_interval, offset):
-    """Calculates a new average based on 
+def avg1(average, offset):
+    """Calculates a new average based on the previous average and the new offset.
     returns: average
     """
-    
-    return avg
+    new_average = (float(average) * (2.0/3)) + (float(offset) * (1.0/3))    
+    return new_average
 
 def avg2(compare_interval, counter_steps):
     """
