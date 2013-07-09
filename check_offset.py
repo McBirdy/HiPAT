@@ -10,6 +10,7 @@ import subprocess
 import time
 import sys
 import shelve
+import re
 
 def get_offset():
     """Returns the offset between the client and the reference server. It first performs a check to see if ntpd is running.
@@ -25,43 +26,81 @@ def get_offset():
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
         time.sleep(120)
     
-    ntpq_output = subprocess.check_output(["ntpq", "-pn"])
-	regex = "%s.*?([\d\.-]*)\s+[\d.]*$" %(ref_server)    #inserts ref_server into regex
-	offset_ref = re.search(regex, ntpq_output, re.MULTILINE)    #extract offset
-	offset_ref = float(offset_ref.group(1))
+    ntpq_output = subprocess.check_output(['ntpq', '-pn'])
+    regex = "%s.*?([\d\.-]*)\s+[\d.]*$" %(ref_server)
+    offset_ref = re.search(regex, ntpq_output, re.MULTILINE)
+    offset_ref = float(offset_ref.group(1))
     return offset_ref
+   
     
 def avg1(average, offset):
     """Calculates a new average based on the previous average and the new offset.
     returns: average
     """
-    new_average = (float(average) * (2.0/3)) + (float(offset) * (1.0/3))    
+    new_average = (float(average) * (2.0/3)) + (float(offset) * (1.0/3))  
     return new_average
 
-def avg2(compare_interval, counter_steps):
-    """
+def avg2(compare_interval, counter_steps, offset, db):
+    """Avg2 is called when a new offset is outside the compare_interval of the trusted_average. Avg2 makes sure that the new offset is stable before it is trusted. It does this by making sure that the new offset is repeated counter_steps number of times.
     
+    compare_interval = how far appart the offsets can be from the average to be accepted.
+    counter_steps = how many superseding values within the compare interval needed to become a trusted value.
+    offset: offset to the ntp reference
+    db: shelve file with trusted_average
+    
+    returns: nothing, but has updated the 
     """
+    untrusted_average = offset  #this is the starting point
+    for count in range(counter_steps):  #number of times we need a stable value
+        high_interval = untrusted_average + compare_interval
+        low_interval = untrusted_average - compare_interval
+        offset = get_offset()   #we get a new offset value
+        if low_interval <= offset <= high_interval:
+            untrusted_average = avg1(untrusted_average, offset)
+            time.sleep(20)
+        else:
+            return
+    db['average'] = untrusted_average #it is now trusted
+    return
+            
+    
+def shelvefile():
+    """Opens the shelve file. If no shelvefile exists a new one is created and populated with a default average value.
+    
+    returns: the open shelvefile    
+    """
+    db = shelve.open(config['program_path']+'shelvefile', 'c')
+    if 'average' not in db:
+        db['average'] = 0
+    return db
     
 def main():
-    """
+    """reads in program arguments, creates a shelve file. Then it checks wheter we do an avg1 or avg2 calculation. Finally the new average is written to the shelf and printed out.
     
     compare_interval = how far appart the offsets can be from the average to be accepted.
     counter_steps = how many superseding values within the compare interval needed to become a trusted value.
     
     """
-    compare_interval = sys.argv[1]
-    counter_steps = sys.argv[2]
+    #read in arguments
+    compare_interval = int(sys.argv[1])
+    counter_steps = int(sys.argv[2])
     
     offset = get_offset()
-    db = shelve.open(config['program_path']+'shelvefile', 'c')
-    #read in average from db
-    #compare offset+compare_interval to average. if OK do avg1 calc.
-    #if not OK do avg2 calc
-    #avg1 returns avg which is returned
-    #if avg2 returns it means it is a trusted value, else we return db[avg]
+    db = shelvefile()   
+    trusted_average = db['average']
     
+    #check to see if we can perform average 1 calculation
+    high_interval = trusted_average + compare_interval
+    low_interval = trusted_average - compare_interval
+    if low_interval <= offset <= high_interval:
+        new_average = avg1(trusted_average, offset)
+        db['average'] = new_average #the new average is saved
+    else:
+        avg2(compare_interval, counter_steps, offset, db)
     
+    new_average = db['average']
+    db.close()
+    print new_average   
 
 if __name__ == '__main__':
     main()
