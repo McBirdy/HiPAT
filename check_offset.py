@@ -11,6 +11,7 @@ import time
 import sys
 import shelve
 import re
+import datetime
 
 def get_offset():
     """Returns the offset between the client and the reference server. It first performs a check to see if ntpd is running.
@@ -72,22 +73,20 @@ def shelvefile():
     db = shelve.open(config['program_path']+'shelvefile', 'c')
     if 'average' not in db:
         db['average'] = 0
+    elif 'freq_adj' not in db:
+        db['freq_adj'] = [datetime.datetime.now(), 0]
     return db
     
-def main():
+def main(compare_interval, counter_steps):
     """reads in program arguments, creates a shelve file. Then it checks wheter we do an avg1 or avg2 calculation. Finally the new average is written to the shelf and printed out.
     
     compare_interval = how far appart the offsets can be from the average to be accepted.
     counter_steps = how many superseding values within the compare interval needed to become a trusted value.
     
-    """
-    #read in arguments
-    compare_interval = int(sys.argv[1])
-    counter_steps = int(sys.argv[2])
-    
+    """    
     offset = get_offset()
     db = shelvefile()   
-    trusted_average = db['average']
+    trusted_average = db['average'] #the trusted average is stored in the shelf
     
     #check to see if we can perform average 1 calculation
     high_interval = trusted_average + compare_interval
@@ -100,7 +99,7 @@ def main():
     
     new_average = db['average']
     db.close()
-    print new_average   
+    return new_average   
 
 if __name__ == '__main__':
     main()

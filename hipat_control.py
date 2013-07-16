@@ -24,24 +24,25 @@ def crtc_restart(ser):
 def crtc_valid(ser):
     """crtc_valid checks to see if the output from the crtc is valid.
     
-    returns:
+    returns: None, but will not return until it has received valid output from crtc.
     """
     regex = "054,(A|V),0000"
-    for x in range(10):
-        try:
-            serial_message = str(ser)
-            match = re.search(regex, serial_message).group(1)
-            if match:
-                answer = match
-                break
-        except:
-            answer = "V"
-            continue
-    if answer == "V":
-        ser.date_time(0)
-        time.sleep(1800)
-
-
+    answer = "V"
+    while(answer == "V"):
+        for x in range(10):
+            try:
+                serial_message = str(ser)
+                match = re.search(regex, serial_message).group(1)
+                if match:
+                    answer = match
+                    break
+            except:
+                answer = "V"
+                continue
+        if answer == "V":
+            ser.date_time(0)
+    time.sleep(1800)
+    return
     
 def make_adjust(ser, offset):
     """make_adjust communicates with the crtc class and will adjust the time, date and milliseconds on the crtc. After an adjustment is made the function returns, it will then have to be called again with an updated offset.
@@ -57,16 +58,14 @@ def make_adjust(ser, offset):
     
     #Adjust ms
     while round(offset,1) > 1 or round(offset,1) < -1:
-        delta = -offset  #- because adjust in the opposite direction
-        ser.adjust_ms(delta)
+        ser.adjust_ms(offset)
         time.sleep(1800)
         return
     print "Milliseconds adjusted"
     return    
     
 def main():
-    """
-    
+    """hipat_control first calls the restart and valid functions, then it will attempt to set the offset for the first time. When all these checks are done it resumes normal operation which is looped.    
     """
     #Init serial port
     ser = Crtc()
