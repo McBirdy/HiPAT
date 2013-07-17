@@ -21,7 +21,7 @@ def get_offset():
     ref_server = config["hipat_reference"]  #ntp reference server
     
     #if Ntpd isn't running we set the date manually and restart the service.
-    ntpd_status = subprocess.call(["pgrep", "ntpd"])
+    ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
     if (ntpd_status != 0):
         subprocess.call(["ntpdate", "-u", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
@@ -65,17 +65,6 @@ def avg2(compare_interval, counter_steps, offset, db):
     return
             
     
-def shelvefile():
-    """Opens the shelve file. If no shelvefile exists a new one is created and populated with a default average value.
-    
-    returns: the open shelvefile    
-    """
-    db = shelve.open(config['program_path']+'shelvefile', 'c')
-    if 'average' not in db:
-        db['average'] = 0
-    elif 'freq_adj' not in db:
-        db['freq_adj'] = [datetime.datetime.now(), 0]
-    return db
     
 def main(compare_interval, counter_steps):
     """reads in program arguments, creates a shelve file. Then it checks wheter we do an avg1 or avg2 calculation. Finally the new average is written to the shelf and printed out.
@@ -85,16 +74,18 @@ def main(compare_interval, counter_steps):
     
     """    
     offset = get_offset()
-    db = shelvefile()   
+    db = shelve.open(config['program_path']+'shelvefile', 'c')
     trusted_average = db['average'] #the trusted average is stored in the shelf
     
     #check to see if we can perform average 1 calculation
     high_interval = trusted_average + compare_interval
     low_interval = trusted_average - compare_interval
     if low_interval <= offset <= high_interval:
+        print "Performing avg1 calculation"
         new_average = avg1(trusted_average, offset)
         db['average'] = new_average #the new average is saved
     else:
+        print "Performing avg2 calculation"
         avg2(compare_interval, counter_steps, offset, db)
     
     new_average = db['average']

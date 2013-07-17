@@ -4,11 +4,14 @@
 """
 
 from crtc import Crtc
+from config import config
+import datetime
 import time
 import re
 import check_offset
 import os
 import sys
+import shelve
 
 def check_running():
     """will check if hipat_control is already running.
@@ -21,14 +24,28 @@ def check_running():
     if os.path.isfile(pidfile): #if a pidfile exists
         new_pid = file(pidfile, 'r').read()
         try:
-            os.kill(new_pid,0)  #check if a process is running
+            os.kill(int(new_pid),0)  #check if a process is running
         except:
             file(pidfile, 'w').write(pid)   #if not we write our own pid
         else:
+            print "hipat_control is already running, exiting"
             sys.exit()  #if it does we exit our program.
     else:
         file(pidfile, 'w').write(pid)   #store pid in file
     return pidfile
+    
+def shelvefile():
+    """Opens the shelve file. If no shelvefile exists a new one is created and populated with a default average value.
+    
+    returns: None  
+    """
+    db = shelve.open(config['program_path']+'shelvefile', 'c')
+    if 'average' not in db:
+        db['average'] = 0
+    if 'freq_adj' not in db:
+        db['freq_adj'] = [datetime.datetime.now(), 0]
+    db.close()
+    return 
 
 def crtc_restart(ser):
     """checks to see if the crtc has restarted. If it has it means that the saved amount of frequency adjustment has to be redone.
@@ -39,7 +56,8 @@ def crtc_restart(ser):
     if crtc_restart == 'Y':
         #reset the previous freq_adj by calling it with a True variable
         ser.freq_adj(True) 
-        return
+    print "Crtc restarted: {}".format(crtc_restart)
+    return
 
 def crtc_valid(ser):
     """crtc_valid checks to see if the output from the crtc is valid.
@@ -60,8 +78,10 @@ def crtc_valid(ser):
                 answer = "V"
                 continue
         if answer == "V":
+            print "Crtc output invalid, sending date and time."
             ser.date_time(0)
-    time.sleep(1800)
+            time.sleep(1800)
+    print "Crtc output valid"
     return
     
 def make_adjust(ser, offset):
@@ -84,11 +104,26 @@ def make_adjust(ser, offset):
     print "Milliseconds adjusted"
     return    
     
+
+def print_output(output, new_line=True):
+    """print_output is used to update the stdout with new information. It overwrites the stdout. 
+    
+    output: what will be printed   
+    new_line: should the print include a newline
+    """
+    if x == True:
+        sys.stdout.write("\r{0}\n".format(output[0]))
+    elif x == False:
+        sys.stdout.write("\r{0}".format(output[0]))
+        
+
 def main():
     """hipat_control first calls the restart and valid functions, then it will attempt to set the offset for the first time. When all these checks are done it resumes normal operation which is looped.    
     """
+    pidfile = check_running()
     #Init serial port
     ser = Crtc()
+    db = shelvefile()
     
     #First time boot checks
     crtc_restart(ser)
@@ -96,13 +131,17 @@ def main():
     
     #First time check_offset
     offset = check_offset.main(1,10)
+    print "Offset to reference server: {}".format(offset)
     while(not (-1 < offset < 1)):
+        print "Performing first time offset adjustment"
         make_adjust(ser, offset)
         offset  = check_offset.main(1,10)
         
     #Normal operation is resumed
+    print "Normal operation is resumed"
     while(True):
         offset = check_offset.main(0.5, 60)
+        print_output("Normal operation, offset: {}".format(offset), False)
         if not (-1 < offset <1):
             make_adjust(ser, offset)
             #Make a frequency adjust at the same time
