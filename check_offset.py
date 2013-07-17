@@ -49,7 +49,7 @@ def avg2(compare_interval, counter_steps, offset, db):
     offset: offset to the ntp reference
     db: shelve file with trusted_average
     
-    returns: nothing, but has updated the 
+    returns: nothing, but has updated the shelve file
     """
     untrusted_average = offset  #this is the starting point
     for count in range(counter_steps):  #number of times we need a stable value
@@ -58,7 +58,7 @@ def avg2(compare_interval, counter_steps, offset, db):
         offset = get_offset()   #we get a new offset value
         if low_interval <= offset <= high_interval:
             untrusted_average = avg1(untrusted_average, offset)
-            time.sleep(20)
+            time.sleep(60)
         else:
             return
     db['average'] = untrusted_average #it is now trusted

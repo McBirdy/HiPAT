@@ -7,6 +7,28 @@ from crtc import Crtc
 import time
 import re
 import check_offset
+import os
+import sys
+
+def check_running():
+    """will check if hipat_control is already running.
+    
+    returns: address to pidfile
+    """
+    pid = str(os.getpid())
+    pidfile = "/tmp/check_offset.pid"
+    
+    if os.path.isfile(pidfile): #if a pidfile exists
+        new_pid = file(pidfile, 'r').read()
+        try:
+            os.kill(new_pid,0)  #check if a process is running
+        except:
+            file(pidfile, 'w').write(pid)   #if not we write our own pid
+        else:
+            sys.exit()  #if it does we exit our program.
+    else:
+        file(pidfile, 'w').write(pid)   #store pid in file
+    return pidfile
 
 def crtc_restart(ser):
     """checks to see if the crtc has restarted. If it has it means that the saved amount of frequency adjustment has to be redone.
@@ -14,12 +36,10 @@ def crtc_restart(ser):
     returns: None
     """
     crtc_restart = ser.send('p', 'PSRFTXT,(Y|N)')
-    """if crtc_restart == 'Y':
-        #set the date and time, and reset the previous freq_adj
-        ser.date_time(0)
+    if crtc_restart == 'Y':
+        #reset the previous freq_adj by calling it with a True variable
         ser.freq_adj(True) 
         return
-    """
 
 def crtc_valid(ser):
     """crtc_valid checks to see if the output from the crtc is valid.
@@ -86,7 +106,10 @@ def main():
         if not (-1 < offset <1):
             make_adjust(ser, offset)
             #Make a frequency adjust at the same time
-        time.sleep(60)    
+            #ser.freq_adj(False, offset)
+        time.sleep(60)
+    
+    os.unlink(pidfile) 
 
 if __name__ == '__main__':
     main()
