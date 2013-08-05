@@ -89,9 +89,8 @@ class Crtc():
         
             #Then the date is written
             status_date = self.send('d' + datetime.datetime.utcnow().strftime("%d%m%Y"))
-
             #Then the time is written
-            total_time = datetime.datetime.utcnow() + python_delta  #Time to write
+            total_time = datetime.datetime.utcnow() + python_delta   #Time to write
             status_time = self.send('t' + total_time.strftime("%H%M%S%f")[:-3]) #Writing time
             
             if status_date == 1 or status_time == 1:

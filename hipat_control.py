@@ -111,10 +111,10 @@ def print_output(output, new_line=True):
     output: what will be printed   
     new_line: should the print include a newline
     """
-    if x == True:
-        sys.stdout.write("\r{0}\n".format(output[0]))
-    elif x == False:
-        sys.stdout.write("\r{0}".format(output[0]))
+    if new_line == True:
+        sys.stdout.write("\r{0}\n".format(output))
+    elif new_line == False:
+        sys.stdout.write("\r{0}".format(output))
         
 
 def main():
@@ -130,10 +130,10 @@ def main():
     crtc_valid(ser)
     
     #First time check_offset
+    print "Performing first time offset adjustment"
     offset = check_offset.main(1,10)
     print "Offset to reference server: {}".format(offset)
     while(not (-1 < offset < 1)):
-        print "Performing first time offset adjustment"
         make_adjust(ser, offset)
         offset  = check_offset.main(1,10)
         
