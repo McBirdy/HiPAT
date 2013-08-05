@@ -90,7 +90,7 @@ def make_adjust(ser, offset):
     returns: None, when it is finished.    
     """
     #Adjust time and date
-    if -200 > offset or offset > 200:
+    if -1000 > offset or offset > 1000:
         ser.date_time(offset)
         time.sleep(1800)
         return

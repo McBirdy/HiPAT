@@ -83,14 +83,16 @@ class Crtc():
         delta: time offset in milliseconds.
         returns: 0 if OK, 1 if error occured.
         """
-        #First the delta is converted to a python timedelta object, a timedelta object accepts either seconds or microseconds. delta * 1000 is in microseconds.
         while True:
+            #First the delta is converted to a python timedelta object, a timedelta object accepts either seconds or microseconds. delta * 1000 is in microseconds.
             python_delta = datetime.timedelta(microseconds = delta * 1000)
+            #the transmission takes time, so this is accounted for.
+            transmission_error = datetime.timedelta(microseconds = 343000)
         
             #Then the date is written
             status_date = self.send('d' + datetime.datetime.utcnow().strftime("%d%m%Y"))
             #Then the time is written
-            total_time = datetime.datetime.utcnow() + python_delta   #Time to write
+            total_time = datetime.datetime.utcnow() + python_delta + transmission_error  #Time to write
             status_time = self.send('t' + total_time.strftime("%H%M%S%f")[:-3]) #Writing time
             
             if status_date == 1 or status_time == 1:
