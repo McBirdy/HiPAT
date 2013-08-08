@@ -7,12 +7,16 @@ It will send and receive information.
 from serial import Serial
 from timeout import timeout #import the timeout decorator
 from config import config   #configuration dictionary
+import logger
 import re
 import datetime
 import time
 import shelve
 import math
 import sys
+
+#initialize the logger
+logfile = logger.init_logger('crtc')
 
 ser_buffer = ''     #Global receive buffer
 
@@ -46,12 +50,17 @@ class Crtc():
             time.sleep(0.01)
             self.ser.write(letter)
           
+        #If response is specified to be None, we skip the receive check
+        if response == None:
+            self.ser.close()
+            return 1
         #then we wait for the response
         try:
             answer = self.receive(response)    
             return answer
         except:
             self.ser.write('1111111111')    #the CRTC can hang while expecting more input
+            logfile.warn('Had to send 111111111')
             self.ser.close()
             return 1
             
@@ -114,7 +123,7 @@ class Crtc():
             delta_list = range(int(round(delta,0)),0)   #make sure delta is a whole number
             sign = '-'
         for number in delta_list:
-            status = self.send(sign)
+            status = self.send(sign, None)  #No response needed
             time.sleep(0.01)
         return
     
@@ -149,7 +158,7 @@ class Crtc():
         
         #The final step is to write the steps to the CRTC. 
         #The steps are split into 1000s and 10s.
-        steps = round(steps, -1)    #round steps to closest 10
+        steps = int(round(steps, -1))    #round steps to closest 10
         thousands, rest = divmod(abs(steps), 1000)   #number of thousand steps
         tens, rest = divmod(rest, 10)   #number of ten steps
         
