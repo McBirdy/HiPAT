@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 """crtc.py is a class used to handle all communication with the CRTC.
 It will send and receive information.

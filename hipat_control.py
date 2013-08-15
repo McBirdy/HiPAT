@@ -12,6 +12,7 @@ import check_offset
 import os
 import sys
 import shelve
+import subprocess
 
 #initialize the logger
 logfile = logger.init_logger('hipat_control')
@@ -31,7 +32,7 @@ def check_running():
         except:
             file(pidfile, 'w').write(pid)   #if not we write our own pid
         else:
-            print "hipat_control is already running, exiting"
+            logger.print_output("hipat_control is already running, exiting", False)
             sys.exit()  #if it does we exit our program.
     else:
         file(pidfile, 'w').write(pid)   #store pid in file
@@ -67,6 +68,7 @@ def crtc_valid(ser):
     
     returns: None, but will not return until it has received valid output from crtc.
     """
+    logger.print_output("Checking if CRTC is valid.", False),
     regex = "054,(A|V),0000"
     answer = "V"
     while(answer == "V"):
@@ -93,15 +95,51 @@ def crtc_updating(ser):
     returns: None
     """
     when = '-'
+    count = 0
     while(when == '-'):
         ntpq_output = check_offset.get_offset(True)
         when = re.search('127\.127\.20\.0.+l\s+([\w|-]+)\s+16', ntpq_output).group(1)
+        count += 1  #ntpq can be stuck receiving nothing, thus displaying '-'
+        if count > 5:
+            when = 65
+        time.sleep(1)
     when = int(when)
-    if when > 60:
+    if  60 < when < 20000:
         ser.date_time(0)
         logfile.warn("ntpq not receiving update from crtc, resetting date and time")
         logger.print_output("Date and time set, sleeping while waiting for time to resync", False)        
         time.sleep(1800)
+    elif when >= 20000: #very large offset, resyncing with reference
+        logfile.warn("Offset is very large, resyncing with reference.")
+        subprocess.call(["ntpdate", "-u", ref_server])
+        subprocess.call(["/etc/rc.d/ntpd", "restart"])
+        time.sleep(120)
+    return
+
+def check_file_lengths(length):
+    """To make sure the storage capacity of the HiPAT system doesn't fill up a regular check of the log files is done. 
+    
+    length: number of lines the file should not exceed.
+    
+    returns: None
+    """
+    filepaths = [config['program_path'] + 'errors.log',
+                 config['program_path'] + 'running_output.txt']
+    for file in filepaths:
+        try:
+            with open(file, 'r') as f:
+                lines = f.readlines()
+                if len(lines) > length:
+                    lines = lines[-length:]
+                else:
+                    continue
+            #if more than 200 lines are present only the last 200 are rewritten
+            with open(file, 'w') as c:
+                for line in lines:
+                    c.write(line)
+            continue            
+        except IOError:
+            logger.print_output("No {0} present".format(os.path.basename(file)))
     return
     
 def make_adjust(ser, offset):
@@ -118,7 +156,7 @@ def make_adjust(ser, offset):
     
     #Adjust ms
     logger.print_output("Adjusting Milliseconds", False)
-    while round(offset,1) > 1 or round(offset,1) < -1:
+    while round(offset,1) >= 1 or round(offset,1) <= -1:
         ser.adjust_ms(offset)
         time.sleep(1800)
         return
@@ -152,6 +190,7 @@ def main():
     while(True):
         offset = check_offset.main(0.5, 60)
         logger.print_output("Normal operation, offset: {}".format(offset), False)
+        check_file_lengths(200)
         if not (-1 < offset <1):
             make_adjust(ser, offset)
             crtc_updating(ser)
