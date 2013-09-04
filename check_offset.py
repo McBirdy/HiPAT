@@ -12,10 +12,14 @@ import sys
 import shelve
 import re
 import datetime
+import logger
 
-def get_offset():
+logfile = logger.init_logger("check_offset")
+
+def get_offset(raw_output = False):
     """Returns the offset between the client and the reference server. It first performs a check to see if ntpd is running.
     
+    raw_output: return the complete ntpq -pn output
     returns: offset in ms to the reference server.
     """
     ref_server = config["hipat_reference"]  #ntp reference server
@@ -23,11 +27,14 @@ def get_offset():
     #if Ntpd isn't running we set the date manually and restart the service.
     ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
     if (ntpd_status != 0):
+        logger.warn("ntpd not running, restarting service")
         subprocess.call(["ntpdate", "-u", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
         time.sleep(120)
     
     ntpq_output = subprocess.check_output(['ntpq', '-pn'])
+    if raw_output:
+        return ntpq_output
     regex = "%s.*?([\d\.-]*)\s+[\d.]*$" %(ref_server)
     offset_ref = re.search(regex, ntpq_output, re.MULTILINE)
     offset_ref = float(offset_ref.group(1))
@@ -81,11 +88,11 @@ def main(compare_interval, counter_steps):
     high_interval = trusted_average + compare_interval
     low_interval = trusted_average - compare_interval
     if low_interval <= offset <= high_interval:
-        print "Performing avg1 calculation"
+        logger.print_output("Performing avg1 calculation", False)
         new_average = avg1(trusted_average, offset)
         db['average'] = new_average #the new average is saved
     else:
-        print "Performing avg2 calculation"
+        logger.print_output("Performing avg2 calculation", False)
         avg2(compare_interval, counter_steps, offset, db)
     
     new_average = db['average']
