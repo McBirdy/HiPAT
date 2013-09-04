@@ -88,11 +88,9 @@ def main(compare_interval, counter_steps):
     high_interval = trusted_average + compare_interval
     low_interval = trusted_average - compare_interval
     if low_interval <= offset <= high_interval:
-        logger.print_output("Performing avg1 calculation", False)
         new_average = avg1(trusted_average, offset)
         db['average'] = new_average #the new average is saved
     else:
-        logger.print_output("Performing avg2 calculation", False)
         avg2(compare_interval, counter_steps, offset, db)
     
     new_average = db['average']

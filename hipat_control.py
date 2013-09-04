@@ -32,7 +32,6 @@ def check_running():
         except:
             file(pidfile, 'w').write(pid)   #if not we write our own pid
         else:
-            logger.print_output("hipat_control is already running, exiting", False)
             sys.exit()  #if it does we exit our program.
     else:
         file(pidfile, 'w').write(pid)   #store pid in file
@@ -68,7 +67,7 @@ def crtc_valid(ser):
     
     returns: None, but will not return until it has received valid output from crtc.
     """
-    logger.print_output("Checking if CRTC is valid.", False),
+    logger.print_output("Checking if CRTC is valid."),
     regex = "054,(A|V),0000"
     answer = "V"
     while(answer == "V"):
@@ -85,7 +84,7 @@ def crtc_valid(ser):
         if answer == "V":
             logfile.info("Crtc output invalid, sending date and time.")
             ser.date_time(0)
-            logger.print_output("Date and time set, sleeping while waiting for time to resync", False)
+            logger.print_output("Date and time set, sleeping while waiting for time to resync")
             time.sleep(1800)
     return
     
@@ -107,7 +106,7 @@ def crtc_updating(ser):
     if  60 < when < 20000:
         ser.date_time(0)
         logfile.warn("ntpq not receiving update from crtc, resetting date and time")
-        logger.print_output("Date and time set, sleeping while waiting for time to resync", False)        
+        logger.print_output("Date and time set, sleeping while waiting for time to resync")        
         time.sleep(1800)
     elif when >= 20000: #very large offset, resyncing with reference
         logfile.warn("Offset is very large, resyncing with reference.")
@@ -148,14 +147,14 @@ def make_adjust(ser, offset):
     returns: None, when it is finished.    
     """
     #Adjust time and date
-    logger.print_output("Adjusting Date and Time", False)
+    logger.print_output("Adjusting Date and Time")
     if -1000 > offset or offset > 1000:
         ser.date_time(offset)
         time.sleep(1800)
         return
     
     #Adjust ms
-    logger.print_output("Adjusting Milliseconds", False)
+    logger.print_output("Adjusting Milliseconds")
     while round(offset,1) >= 1 or round(offset,1) <= -1:
         ser.adjust_ms(offset)
         time.sleep(1800)
@@ -189,7 +188,6 @@ def main():
     logger.print_output("Normal operation is resumed")
     while(True):
         offset = check_offset.main(0.5, 60)
-        logger.print_output("Normal operation, offset: {}".format(offset), False)
         check_file_lengths(200)
         if not (-1 < offset <1):
             make_adjust(ser, offset)
