@@ -127,7 +127,7 @@ class Crtc():
             time.sleep(0.01)
         return
     
-    def freq_adj(crtc_restart=False, offset=0):
+    def freq_adj(self, crtc_restart=False, offset=0):
         """frequency adjust will monitor the long term stability of the oscillator, and will attempt to adjust the frequency to improve stability.
         
         crtc_restart: Indicates if the crtc has lost power thus having reset all previous frequency adjustments.
