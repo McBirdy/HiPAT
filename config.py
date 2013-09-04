@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import re
+import logger
+
+logfile = logger.init_logger('config')
 
 """Config will scan config.txt and use config values in a dict."""
 
@@ -20,7 +23,7 @@ def scan_config(defaults):
             if config_item in defaults:
                 defaults[config_item] = config_value
             else:
-                print 'Error in config.txt please review: ' + config_item
+                logfile.warn('Error in config.txt please review: {0}'.format(config_item)
     file.close()
     return defaults
     

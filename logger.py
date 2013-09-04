@@ -33,11 +33,10 @@ def init_logger(name):
     
     return logger
 
-def print_output(output, new_line=True):
+def print_output(output):
     """print_output is used to update the stdout with new information. It overwrites the stdout. 
     
     output: what will be printed   
-    new_line: should the print include a newline
     """
     try:
         rows, columns = os.popen('stty size', 'r').read().split()
@@ -45,9 +44,6 @@ def print_output(output, new_line=True):
         output = output + ' ' * num_blanks
     except (SyntaxError, ValueError):
         output = output + ' ' * 20
-    if new_line == True:
-        sys.stdout.write("{0}\n".format(output))
-    elif new_line == False:
-        sys.stdout.write("{0}\r".format(output))
+    sys.stdout.write("{0}\n".format(output))
     sys.stdout.flush()
     
