@@ -34,6 +34,9 @@ def create_dictionary():
         
         # Reference NTP server
         'hipat_reference': "158.112.116.40",
+        
+        # Frequency adjust
+        'freq_adj': False
     }
     return defaults
     

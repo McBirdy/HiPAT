@@ -193,9 +193,10 @@ def main():
             logger.print_output("Time adjustment needed, offset: {0}".format(offset))
             make_adjust(ser, offset)
             crtc_updating(ser)
-            #Make a frequency adjust at the same time
-            #total_steps = ser.freq_adj(False, offset)
-            #logger.print_output("Total freq_adj steps: {0}".format(total_steps))
+            if config['freq_adj'] == True:
+                #Make a frequency adjust at the same time
+                total_steps = ser.freq_adj(False, offset)
+                logger.print_output("Total freq_adj steps: {0}".format(total_steps))
         time.sleep(60)
     
     os.unlink(pidfile) 
