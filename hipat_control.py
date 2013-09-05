@@ -178,7 +178,7 @@ def main():
     logger.print_output("First time offset adjustment: Started")
     offset = check_offset.main(1,10)
     while(not (-1 < offset < 1)):
-        logger.print_output("Time adjustment is being performed")
+        logger.print_output("Time adjustment needed, offset: {0}".format(offset))
         make_adjust(ser, offset)
         crtc_updating(ser)
         offset  = check_offset.main(1,10)
@@ -190,10 +190,12 @@ def main():
         offset = check_offset.main(0.5, 60)
         check_file_lengths(200)
         if not (-1 < offset <1):
+            logger.print_output("Time adjustment needed, offset: {0}".format(offset))
             make_adjust(ser, offset)
             crtc_updating(ser)
             #Make a frequency adjust at the same time
-            #ser.freq_adj(False, offset)
+            #total_steps = ser.freq_adj(False, offset)
+            #logger.print_output("Total freq_adj steps: {0}".format(total_steps))
         time.sleep(60)
     
     os.unlink(pidfile) 

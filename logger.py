@@ -7,6 +7,7 @@
 import logging
 import os
 import sys
+import datetime
 from config import config
 
 def init_logger(name):
@@ -34,16 +35,11 @@ def init_logger(name):
     return logger
 
 def print_output(output):
-    """print_output is used to update the stdout with new information. It overwrites the stdout. 
+    """print_output is used to update the stdout with new information. It will time tag all the messages printed.
     
     output: what will be printed   
     """
-    try:
-        rows, columns = os.popen('stty size', 'r').read().split()
-        num_blanks = int(columns) - len(output)
-        output = output + ' ' * num_blanks
-    except (SyntaxError, ValueError):
-        output = output + ' ' * 20
-    sys.stdout.write("{0}\n".format(output))
+    time_tag = datetime.datetime.now()
+    sys.stdout.write("{0} - {1}\n".format(time_tag, output))
     sys.stdout.flush()
     

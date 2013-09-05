@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 import re
-import logger
-
-logfile = logger.init_logger('config')
 
 """Config will scan config.txt and use config values in a dict."""
 
@@ -23,7 +20,7 @@ def scan_config(defaults):
             if config_item in defaults:
                 defaults[config_item] = config_value
             else:
-                logfile.warn('Error in config.txt please review: {0}'.format(config_item)
+                print('Error in config.txt please review: {0}'.format(config_item))
     file.close()
     return defaults
     
@@ -36,7 +33,7 @@ def create_dictionary():
         'program_path': "/export/home/hipat/",
         
         # Reference NTP server
-        'hipat_reference': "158.112.116.41",
+        'hipat_reference': "158.112.116.40",
     }
     return defaults
     

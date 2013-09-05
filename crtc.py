@@ -175,10 +175,13 @@ class Crtc():
         #updating shelve file with the new information
         if crtc_restart:
             db['freq_adj'] = [datetime.datetime.now(), steps]
+            db.close()
+            return steps
         else:
-            db['freq_adj'] = [datetime.datetime.now(), db['freq_adj'][1] + steps]
-        db.close()
-        return
+            total_steps = db['freq_adj'][1] + steps
+            db['freq_adj'] = [datetime.datetime.now(), total_steps]
+            db.close()
+            return total_steps
 
 
 
