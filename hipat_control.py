@@ -197,6 +197,7 @@ def main():
                 #Make a frequency adjust at the same time
                 total_steps = ser.freq_adj(False, offset)
                 logger.print_output("Total freq_adj steps: {0}".format(total_steps))
+            logger.print_output("Normal operation is resumed")
         time.sleep(60)
     
     os.unlink(pidfile) 
