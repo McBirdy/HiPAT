@@ -102,15 +102,17 @@ def crtc_updating(ser):
         if count > 5:
             when = 65
         time.sleep(1)
+        
     when = int(when)
     if  60 < when < 20000:
         ser.date_time(0)
         logfile.warn("ntpq not receiving update from crtc, resetting date and time")
         logger.print_output("Date and time set, sleeping while waiting for time to resync")        
         time.sleep(1800)
-    elif when >= 20000: #very large offset, resyncing with reference
+    elif when >= 20000: #not updated in a long time, resyncing with reference
         logfile.warn("Offset is very large, resyncing with reference.")
-        subprocess.call(["ntpdate", "-u", ref_server])
+        subprocess.call(["/etc/rc.d/ntpd", "stop"])
+        subprocess.call(["ntpdate", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
         time.sleep(120)
     return
@@ -198,6 +200,7 @@ def main():
                 total_steps = ser.freq_adj(False, offset)
                 logger.print_output("Total freq_adj steps: {0}".format(total_steps))
             logger.print_output("Normal operation is resumed")
+            offset = check_offset.main(2, 10)   #new offset set.
         time.sleep(60)
     
     os.unlink(pidfile) 

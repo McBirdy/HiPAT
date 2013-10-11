@@ -28,7 +28,8 @@ def get_offset(raw_output = False):
     ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
     if (ntpd_status != 0):
         logger.warn("ntpd not running, restarting service")
-        subprocess.call(["ntpdate", "-u", ref_server])
+        subprocess.call(["/etc/rc.d/ntpd", "stop"])
+        subprocess.call(["ntpdate", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
         time.sleep(120)
     
