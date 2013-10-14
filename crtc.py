@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 """crtc.py is a class used to handle all communication with the CRTC.
 It will send and receive information.
@@ -7,13 +7,16 @@ It will send and receive information.
 from serial import Serial
 from timeout import timeout #import the timeout decorator
 from config import config   #configuration dictionary
-import monitor_offset       #offset to reference server commands
+import logger
 import re
 import datetime
 import time
 import shelve
 import math
 import sys
+
+#initialize the logger
+logfile = logger.init_logger('crtc')
 
 ser_buffer = ''     #Global receive buffer
 
@@ -47,12 +50,17 @@ class Crtc():
             time.sleep(0.01)
             self.ser.write(letter)
           
+        #If response is specified to be None, we skip the receive check
+        if response == None:
+            self.ser.close()
+            return 1
         #then we wait for the response
         try:
             answer = self.receive(response)    
             return answer
         except:
             self.ser.write('1111111111')    #the CRTC can hang while expecting more input
+            logfile.warn('Had to send 111111111')
             self.ser.close()
             return 1
             
@@ -84,15 +92,16 @@ class Crtc():
         delta: time offset in milliseconds.
         returns: 0 if OK, 1 if error occured.
         """
-        #First the delta is converted to a python timedelta object, a timedelta object accepts either seconds or microseconds. delta * 1000 is in microseconds.
         while True:
+            #First the delta is converted to a python timedelta object, a timedelta object accepts either seconds or microseconds. delta * 1000 is in microseconds.
             python_delta = datetime.timedelta(microseconds = delta * 1000)
+            #the transmission takes time, so this is accounted for.
+            transmission_error = datetime.timedelta(microseconds = 343000)
         
             #Then the date is written
             status_date = self.send('d' + datetime.datetime.utcnow().strftime("%d%m%Y"))
-
             #Then the time is written
-            total_time = datetime.datetime.utcnow() + python_delta  #Time to write
+            total_time = datetime.datetime.utcnow() + python_delta + transmission_error  #Time to write
             status_time = self.send('t' + total_time.strftime("%H%M%S%f")[:-3]) #Writing time
             
             if status_date == 1 or status_time == 1:
@@ -114,11 +123,11 @@ class Crtc():
             delta_list = range(int(round(delta,0)),0)   #make sure delta is a whole number
             sign = '-'
         for number in delta_list:
-            status = self.send(sign)
+            status = self.send(sign, None)  #No response needed
             time.sleep(0.01)
         return
     
-    def freq_adj(crtc_restart=False, offset=0):
+    def freq_adj(self, crtc_restart=False, offset=0):
         """frequency adjust will monitor the long term stability of the oscillator, and will attempt to adjust the frequency to improve stability.
         
         crtc_restart: Indicates if the crtc has lost power thus having reset all previous frequency adjustments.
@@ -127,7 +136,7 @@ class Crtc():
         """
         
         #The time of the last frequency adjustment and adjustment steps are kept in a shelve.
-        db = shelve.open(config['program_path']+'monitor_shelve','c')
+        db = shelve.open(config['program_path']+'shelvefile','c')
         
         #Now the number of necessary steps are calculated.
         if crtc_restart:    #if the crtc has restarted we reuse the saved number of steps
@@ -149,7 +158,7 @@ class Crtc():
         
         #The final step is to write the steps to the CRTC. 
         #The steps are split into 1000s and 10s.
-        steps = round(steps, -1)    #round steps to closest 10
+        steps = int(round(steps, -1))    #round steps to closest 10
         thousands, rest = divmod(abs(steps), 1000)   #number of thousand steps
         tens, rest = divmod(rest, 10)   #number of ten steps
         
@@ -166,72 +175,14 @@ class Crtc():
         #updating shelve file with the new information
         if crtc_restart:
             db['freq_adj'] = [datetime.datetime.now(), steps]
+            db.close()
+            return steps
         else:
-            db['freq_adj'] = [datetime.datetime.now(), db['freq_adj'][1] + steps]
-        return
+            total_steps = db['freq_adj'][1] + steps
+            db['freq_adj'] = [datetime.datetime.now(), total_steps]
+            db.close()
+            return total_steps
 
 
 
-def get_offset(data):
-    """get_offset will access a part of the monitor_shelve database and return the value.
-    The different values that can be accessed are:
-    txx:    time value recorded every 15 minutes. xx = value between 1 and 99
-    srw:    statistics of the previous 7 days. Save Running Week
-    s1h:    statistics of the previous hour. Save 1 Hour
-    s24h:   statistics of the previous 24 hours. Save 24 Hours
-    sxd:    statistics for a day. x specifies a value between 1 and 9
-    sw:     statistics for a week
-    local:  gives a real time offset from the local time to the ref time
-    
-    return: offset in milliseconds
-    """
-    db = shelve.open(config['program_path']+'monitor_shelve')
-    if data == 'txx' or data == 'sxd':
-        value = db[data][0]
-    elif data == 'local':
-        value = monitor_offset.get_offset(True)
-    else:
-        value = db[data]
-    return value
-    
 
-def main():
-    """
-    
-    """ 
-    
-    #Init serial port
-    ser = Crtc()
-    
-    #Check if crtc has restarted since last time
-    crtc_restart = ser.send('p', 'PSRFTXT,(Y|N)')
-    if crtc_restart == 'Y':
-        #set the date and time, and reset the previous freq_adj
-        ser.date_time(0)
-        ser.freq_adj(True) 
-        sys.exit()
-    freq_adj_offset = get_offset('s1h') #Offset before ms adjustments are made.
-        
-    #Adjust time and date
-    if -200 > get_offset('s1h') or get_offset('s1h') > 200:
-        delta = get_offset('local')
-        ser.date_time(delta)
-        time.sleep(4000)
-    print "Date and Time adjusted"
-    
-    #Adjust ms
-    while round(get_offset('s1h'),1) > 1 or round(get_offset('s1h'),1) < -1:
-        delta = -get_offset('s1h')  #- because adjust in the opposite direction
-        ser.adjust_ms(delta)
-        time.sleep(4000)
-    print "Milliseconds adjusted"
-    
-    #Frequency adjustment       
-        
-if __name__ == '__main__':
-    main()
-        
-        
-        
-        
-        

@@ -11,7 +11,7 @@ def scan_config(defaults):
     defaults: dictionary containig the default configuration.   
     return: dictionary containing the config items.
     """
-    file = open('/export/home/hipat/hipat_test/config.txt','r')
+    file = open('/export/home/hipat/config.txt','r')
     for line in file:
         match = re.search('(\w+):\s"(.+)"', line)
         if match:
@@ -20,7 +20,8 @@ def scan_config(defaults):
             if config_item in defaults:
                 defaults[config_item] = config_value
             else:
-                print 'Error in config.txt please review: ' + config_item
+                print('Error in config.txt please review: {0}'.format(config_item))
+    file.close()
     return defaults
     
 def create_dictionary():
@@ -29,10 +30,13 @@ def create_dictionary():
         'serial_address': "/dev/ttyU0",
         
         # Program path for the program
-        'program_path': "/export/home/hipat/hipat_test",
+        'program_path': "/export/home/hipat/",
         
         # Reference NTP server
-        'hipat_reference': "158.112.116.41",
+        'hipat_reference': "158.112.116.40",
+        
+        # Frequency adjust
+        'freq_adj': False
     }
     return defaults
     
