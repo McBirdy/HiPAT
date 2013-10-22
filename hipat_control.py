@@ -97,13 +97,21 @@ def crtc_updating(ser):
     count = 0
     while(when == '-'):
         ntpq_output = check_offset.get_offset(True)
-        when = re.search('127\.127\.20\.0.+l\s+([\w|-]+)\s+16', ntpq_output).group(1)
+        regex = '127\.127\.20\.0.+l\s+([\w|-]+).*?([\d\.-]*)\s+[\d.]*$'
+        matches = re.search(regex, ntpq_output, re.MULTILINE)
+        when = matches.group(1)
+        offset = matches.group(2)
+        
         count += 1  #ntpq can be stuck receiving nothing, thus displaying '-'
         if count > 5:
             when = 65
         time.sleep(1)
         
     when = int(when)
+    offset = int(offset)
+    if -100 > offset > 100: #offset is large, restarting sync process
+        logfile.warn("ntpd not synced to crtc, restarting ntpd")
+        subprocess.call(["/etc/rc.d/ntpd", "restart"])
     if  60 < when < 20000:
         ser.date_time(0)
         logfile.warn("ntpq not receiving update from crtc, resetting date and time")
@@ -113,7 +121,7 @@ def crtc_updating(ser):
         logfile.warn("Offset is very large, resyncing with reference.")
         subprocess.call(["/etc/rc.d/ntpd", "stop"])
         subprocess.call(["ntpdate", ref_server])
-        subprocess.call(["/etc/rc.d/ntpd", "restart"])
+        subprocess.call(["/etc/rc.d/ntpd", "start"])
         time.sleep(120)
     return
 
@@ -143,8 +151,9 @@ def check_file_lengths(length):
             logger.print_output("No {0} present".format(os.path.basename(file)))
     return
     
-def make_adjust(ser, offset):
-    """make_adjust communicates with the crtc class and will adjust the time, date and milliseconds on the crtc. After an adjustment is made the function returns, it will then have to be called again with an updated offset.
+def make_adjust(ser, offset, db):
+    """make_adjust communicates with the crtc class and will adjust the time, date and milliseconds on the crtc. 
+    After an adjustment is made the function returns, it will then have to be called again with an updated offset.
     
     returns: None, when it is finished.    
     """
@@ -152,6 +161,7 @@ def make_adjust(ser, offset):
     logger.print_output("Adjusting Date and Time")
     if -1000 > offset or offset > 1000:
         ser.date_time(offset)
+        db['average'] = 0.0
         time.sleep(1800)
         return
     
@@ -159,12 +169,15 @@ def make_adjust(ser, offset):
     logger.print_output("Adjusting Milliseconds")
     while round(offset,1) >= 1 or round(offset,1) <= -1:
         ser.adjust_ms(offset)
+        db['average'] = 0.0
         time.sleep(1800)
         return
     return    
     
 def main():
-    """hipat_control first calls the restart and valid functions, then it will attempt to set the offset for the first time. When all these checks are done it resumes normal operation which is looped.    
+    """hipat_control first calls the restart and valid functions, 
+    then it will attempt to set the offset for the first time. 
+    When all these checks are done it resumes normal operation which is looped.    
     """
     pidfile = check_running()
     #Init serial port
@@ -181,7 +194,7 @@ def main():
     offset = check_offset.main(1,10)
     while(not (-1 < offset < 1)):
         logger.print_output("Time adjustment needed, offset: {0}".format(offset))
-        make_adjust(ser, offset)
+        make_adjust(ser, offset, db)
         crtc_updating(ser)
         offset  = check_offset.main(1,10)
     logger.print_output("First time offset adjustment: Completed")
