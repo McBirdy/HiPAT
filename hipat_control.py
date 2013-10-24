@@ -107,11 +107,12 @@ def crtc_updating(ser):
             when = 65
         time.sleep(1)
         
-    when = int(when)
-    offset = int(offset)
-    if -100 > offset > 100: #offset is large, restarting sync process
+    when = float(when)
+    offset = float(offset)
+    if offset < -100 or offset > 100: #offset is large, restarting sync process
         logfile.warn("ntpd not synced to crtc, restarting ntpd")
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
+        time.sleep(1800)
     if  60 < when < 20000:
         ser.date_time(0)
         logfile.warn("ntpq not receiving update from crtc, resetting date and time")
@@ -151,17 +152,19 @@ def check_file_lengths(length):
             logger.print_output("No {0} present".format(os.path.basename(file)))
     return
     
-def make_adjust(ser, offset, db):
+def make_adjust(ser, offset):
     """make_adjust communicates with the crtc class and will adjust the time, date and milliseconds on the crtc. 
     After an adjustment is made the function returns, it will then have to be called again with an updated offset.
     
     returns: None, when it is finished.    
     """
+    db = shelve.open(config['program_path']+'shelvefile', 'c')
     #Adjust time and date
     logger.print_output("Adjusting Date and Time")
     if -1000 > offset or offset > 1000:
         ser.date_time(offset)
         db['average'] = 0.0
+        db.close()
         time.sleep(1800)
         return
     
@@ -170,6 +173,7 @@ def make_adjust(ser, offset, db):
     while round(offset,1) >= 1 or round(offset,1) <= -1:
         ser.adjust_ms(offset)
         db['average'] = 0.0
+        db.close()
         time.sleep(1800)
         return
     return    
@@ -182,7 +186,7 @@ def main():
     pidfile = check_running()
     #Init serial port
     ser = Crtc()
-    db = shelvefile()
+    shelvefile()
     
     #First time boot checks
     crtc_restart(ser)
@@ -194,7 +198,7 @@ def main():
     offset = check_offset.main(1,10)
     while(not (-1 < offset < 1)):
         logger.print_output("Time adjustment needed, offset: {0}".format(offset))
-        make_adjust(ser, offset, db)
+        make_adjust(ser, offset)
         crtc_updating(ser)
         offset  = check_offset.main(1,10)
     logger.print_output("First time offset adjustment: Completed")
