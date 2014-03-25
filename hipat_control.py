@@ -48,7 +48,7 @@ def shelvefile():
     if 'freq_adj' not in db:
         db['freq_adj'] = [datetime.datetime.now(), 0]
     db.close()
-    return
+    returns
     
 def crtc_restart(ser):
     """checks to see if the crtc has restarted. If it has it means that the saved amount of frequency adjustment has to be redone.
