@@ -136,7 +136,7 @@ class Crtc():
         """
         
         #The time of the last frequency adjustment and adjustment steps are kept in a shelve.
-        db = shelve.open(config['program_path']+'shelvefile','c')
+        db = shelve.open(os.path.join(config['program_path'],'shelvefile'), 'c')
         
         #Now the number of necessary steps are calculated.
         if crtc_restart:    #if the crtc has restarted we reuse the saved number of steps

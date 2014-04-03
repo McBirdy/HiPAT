@@ -1,4 +1,4 @@
 serial_address: "/dev/ttyU0"
-program_path: "/export/home/hipat/"
 hipat_reference: "158.112.116.40"
 freq_adj: False
+temporary_storage: "/mnt/tmpfs"

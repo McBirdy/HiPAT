@@ -42,7 +42,7 @@ def shelvefile():
     
     returns: None  
     """
-    db = shelve.open(config['program_path']+'shelvefile', 'c')
+    db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
     if 'average' not in db:
         db['average'] = 0
     if 'freq_adj' not in db:
@@ -67,7 +67,7 @@ def crtc_valid(ser):
     
     returns: None, but will not return until it has received valid output from crtc.
     """
-    logger.print_output("Checking if CRTC is valid."),
+    logfile.info("Checking if CRTC is valid."),
     regex = "054,(A|V),0000"
     answer = "V"
     while(answer == "V"):
@@ -84,7 +84,7 @@ def crtc_valid(ser):
         if answer == "V":
             logfile.info("Crtc output invalid, sending date and time.")
             ser.date_time(0)
-            logger.print_output("Date and time set, sleeping while waiting for time to resync")
+            logfile.info("Date and time set, sleeping while waiting for time to resync")
             time.sleep(1800)
     return
     
@@ -116,7 +116,7 @@ def crtc_updating(ser):
     if  60 < when < 20000:
         ser.date_time(0)
         logfile.warn("ntpq not receiving update from crtc, resetting date and time")
-        logger.print_output("Date and time set, sleeping while waiting for time to resync")        
+        logfile.info("Date and time set, sleeping while waiting for time to resync")        
         time.sleep(1800)
     elif when >= 20000: #not updated in a long time, resyncing with reference
         logfile.warn("Offset is very large, resyncing with reference.")
@@ -133,8 +133,8 @@ def check_file_lengths(length):
     
     returns: None
     """
-    filepaths = [config['program_path'] + 'errors.log',
-                 config['program_path'] + 'running_output.txt']
+    filepaths = [os.path.join(config['program_path'], 'errors.log'),
+                 os.path.join(config['program_path'], 'running_output.txt')]
     for file in filepaths:
         try:
             with open(file, 'r') as f:
@@ -149,7 +149,7 @@ def check_file_lengths(length):
                     c.write(line)
             continue            
         except IOError:
-            logger.print_output("No {0} present".format(os.path.basename(file)))
+            logfile.info("No {0} present".format(os.path.basename(file)))
     return
     
 def make_adjust(ser, offset):
@@ -158,9 +158,9 @@ def make_adjust(ser, offset):
     
     returns: None, when it is finished.    
     """
-    db = shelve.open(config['program_path']+'shelvefile', 'c')
+    db = shelve.open(os.path.join(config['program_path'],'shelvefile'), 'c')
     #Adjust time and date
-    logger.print_output("Adjusting Date and Time")
+    logfile.info("Adjusting Date and Time")
     if -1000 > offset or offset > 1000:
         ser.date_time(offset)
         db['average'] = 0.0
@@ -169,7 +169,7 @@ def make_adjust(ser, offset):
         return
     
     #Adjust ms
-    logger.print_output("Adjusting Milliseconds")
+    logfile.info("Adjusting Milliseconds")
     while round(offset,1) >= 1 or round(offset,1) <= -1:
         ser.adjust_ms(offset)
         db['average'] = 0.0
@@ -194,29 +194,29 @@ def main():
     crtc_updating(ser)
     
     #First time check_offset
-    logger.print_output("First time offset adjustment: Started")
+    logfile.info("First time offset adjustment: Started")
     offset = check_offset.main(1,10)
     while(not (-1 < offset < 1)):
-        logger.print_output("Time adjustment needed, offset: {0}".format(offset))
+        logfile.info("Time adjustment needed, offset: {0}".format(offset))
         make_adjust(ser, offset)
         crtc_updating(ser)
         offset  = check_offset.main(1,10)
-    logger.print_output("First time offset adjustment: Completed")
+    logfile.info("First time offset adjustment: Completed")
         
     #Normal operation is resumed
-    logger.print_output("Normal operation is resumed")
+    logfile.info("Normal operation is resumed")
     while(True):
         offset = check_offset.main(0.5, 60)
         check_file_lengths(200)
         if not (-1 < offset <1):
-            logger.print_output("Time adjustment needed, offset: {0}".format(offset))
+            logfile.info("Time adjustment needed, offset: {0}".format(offset))
             make_adjust(ser, offset)
             crtc_updating(ser)
             if config['freq_adj'] == True:
                 #Make a frequency adjust at the same time
                 total_steps = ser.freq_adj(False, offset)
-                logger.print_output("Total freq_adj steps: {0}".format(total_steps))
-            logger.print_output("Normal operation is resumed")
+                logfile.info("Total freq_adj steps: {0}".format(total_steps))
+            logfile.info("Normal operation is resumed")
             offset = check_offset.main(2, 10)   #new offset set.
         time.sleep(60)
     
