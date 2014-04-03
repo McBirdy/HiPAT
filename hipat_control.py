@@ -133,8 +133,8 @@ def check_file_lengths(length):
     
     returns: None
     """
-    filepaths = [os.path.join(config['program_path'], 'errors.log'),
-                 os.path.join(config['program_path'], 'running_output.txt')]
+    filepaths = [os.path.join(config['temporary_storage'], 'errors.log'),
+                 os.path.join(config['temporary_storage'], 'running_output.txt')]
     for file in filepaths:
         try:
             with open(file, 'r') as f:
@@ -158,7 +158,7 @@ def make_adjust(ser, offset):
     
     returns: None, when it is finished.    
     """
-    db = shelve.open(os.path.join(config['program_path'],'shelvefile'), 'c')
+    db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
     #Adjust time and date
     logfile.info("Adjusting Date and Time")
     if -1000 > offset or offset > 1000:

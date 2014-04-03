@@ -33,13 +33,3 @@ def init_logger(name):
     logger.addHandler(fh)
     
     return logger
-
-def print_output(output):
-    """print_output is used to update the stdout with new information. It will time tag all the messages printed.
-    
-    output: what will be printed   
-    """
-    time_tag = datetime.datetime.now()
-    sys.stdout.write("{0} - {1}\n".format(time_tag, output))
-    sys.stdout.flush()
-    
