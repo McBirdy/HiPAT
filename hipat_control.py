@@ -48,7 +48,7 @@ def shelvefile():
     if 'freq_adj' not in db:
         db['freq_adj'] = [datetime.datetime.now(), 0]
     db.close()
-    returns
+    return
     
 def crtc_restart(ser):
     """checks to see if the crtc has restarted. If it has it means that the saved amount of frequency adjustment has to be redone.
@@ -89,7 +89,9 @@ def crtc_valid(ser):
     return
     
 def crtc_updating(ser):
-    """Checks if the nmea messages from the crtc are being recognised by the ntpq process. The nmea should update every 16 seconds, so if timer is higher than 60 seconds it is assumed that no valid nmea messages are received. A new date_time is run if this occurs.
+    """Checks if the nmea messages from the crtc are being recognised by the ntpq process. 
+    The nmea should update every 16 seconds, so if timer is higher than 60 seconds it is assumed 
+    that no valid nmea messages are received. A new date_time is run if this occurs.
     
     returns: None
     """
@@ -100,7 +102,7 @@ def crtc_updating(ser):
         regex = '127\.127\.20\.0.+l\s+([\w|-]+).*?([\d\.-]*)\s+[\d.]*$'
         matches = re.search(regex, ntpq_output, re.MULTILINE)
         when = matches.group(1)
-        offset = matches.group(2)
+        offset = matches.group(2)   
         
         count += 1  #ntpq can be stuck receiving nothing, thus displaying '-'
         if count > 5:
@@ -125,6 +127,79 @@ def crtc_updating(ser):
         subprocess.call(["/etc/rc.d/ntpd", "start"])
         time.sleep(120)
     return
+
+def is_crtc_updating():
+    """To make sure the crtc is updating the ntpd process we check the output from ntpd.
+    When working correctly ntpd updates the time from the Crtc every 16 seconds. 
+    We therefore collect two updates from the Crtc, 20 seconds appart. If working correctly 
+    the total of our two time stamps shouldn't exceed 17+17 (1 second added). If no updates
+    have been received the total should be 0.
+    
+    returns: boolean regarding status of Crtc    
+    """
+    #regex = '127\.127\.20\.0.+l\s+([\w|-]+).*?([\d\.-]*)\s+[\d.]*$'
+    regex = '17\.72\.148\.53.+u\s+([\w|-]+).*?([\d\.-]*)\s+[\d.]*$'
+    when = []   # Will hold our two answers showing when ntpd was updated
+    
+    # We loop twice, to capture two when-timestamps.
+    for x in range(2):
+        # Get output from the crtc using the check_offset method
+        ntpq_output = check_offset.get_offset(True)
+        matches = re.search(regex, ntpq_output, re.MULTILINE)
+        when_temporary = matches.group(1)   # Create a temporary variable to check for "-", this is equivalent to 0
+        if when_temporary == "-":
+            when_temporary = 0
+        else:
+            when_temporary = int(when_temporary)    # It is first returned as a string
+        when.append(when_temporary) # When was the last update from the crtc received. If never received it is "-"
+        if x == 0:
+            time.sleep(20)  # We sleep for 20 seconds to make sure we go past 16 seconds.
+    
+    # To make sure the crtc is updating we perform a check for the total.
+    print when
+    if sum(when) >= 34:     # The maximum number a single valid when-reading can have is 17.
+        # Not valid
+        return False
+    elif sum(when) == 0:    # No updates are ever received from the Crtc.
+        # Not valid
+        return False
+    else:
+        # Valid
+        return True
+
+def fix_crtc(ser):
+    
+    # Start by checking if the Crtc is actually sending updates over serial.
+    if :# not sending
+        # Loop, send "1", check if fixed
+        # Attempt to send "1" date: 8 digits, time: 9 digits, so we send 10 times
+        # if still not fixed, we report error and exit program
+        # If it starts sending we return
+    
+    # If the problem is not with the Crtc sending updates we check if they are valid
+    # This is indicated by the A|V character in the string. If it is sending "A" everything is OK. 
+    
+    if :# we are receiving a "V" it means the date and time is not set.
+        # We set the date and time.
+        # We return
+    
+    # The Crtc is sending us valid updates, then the problem is with ntpd in freebsd.
+    # First we have to make sure ntpd is running, this test can be called from check_offset.ntpd_running
+    # If ntpd is running, we can try to do an ntpdate to the reference server + restart of ntpd
+        # Problem: if this is not the last stage, how do we check if this has just been attempted?
+    
+    
+    
+    
+        
+        
+        
+        
+        
+        
+                
+        
+    
 
 def check_file_lengths(length):
     """To make sure the storage capacity of the HiPAT system doesn't fill up a regular check of the log files is done. 
@@ -165,7 +240,7 @@ def make_adjust(ser, offset):
         ser.date_time(offset)
         db['average'] = 0.0
         db.close()
-        time.sleep(1800)
+        #time.sleep(60)     # Don't need to sleep. Check_offset will take time and wait for it to be stable.
         return
     
     #Adjust ms
@@ -174,7 +249,7 @@ def make_adjust(ser, offset):
         ser.adjust_ms(offset)
         db['average'] = 0.0
         db.close()
-        time.sleep(1800)
+        #time.sleep(60)     # Don't need to sleep. 
         return
     return    
     
@@ -195,12 +270,12 @@ def main():
     
     #First time check_offset
     logfile.info("First time offset adjustment: Started")
-    offset = check_offset.main(1,10)
+    offset = check_offset.get_quality_offset()
     while(not (-1 < offset < 1)):
         logfile.info("Time adjustment needed, offset: {0}".format(offset))
         make_adjust(ser, offset)
         crtc_updating(ser)
-        offset  = check_offset.main(1,10)
+        offset  = check_offset.get_quality_offset()
     logfile.info("First time offset adjustment: Completed")
         
     #Normal operation is resumed

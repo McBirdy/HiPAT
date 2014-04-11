@@ -14,6 +14,7 @@ import time
 import shelve
 import math
 import sys
+import os
 
 #initialize the logger
 logfile = logger.init_logger('crtc')

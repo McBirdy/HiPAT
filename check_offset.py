@@ -14,9 +14,31 @@ import re
 import datetime
 import math
 import logger
+#from config import config
 
 #initialize the logger
-logfile = logger.init_logger('check_offset')
+#logfile = logger.init_logger('check_offset')
+
+def ntpd_running():
+    """Will make sure ntpd is running. If ntpd has stopped the offset to the reference server can have been to great, 
+    that means we will need to do a more direct time synchronization to the server.
+    When ntpd_running() is complete the ntpd server is guaranteed to be running.
+    
+    returns: none
+    """
+    #ref_server = config["hipat_reference"]
+    ref_server = "17.72.148.53"
+    
+    #if Ntpd isn't running we set the date manually and restart the service.
+    ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
+    if (ntpd_status != 0):
+        logger.warn("Ntpd not running, running ntpdate and restarting")
+        subprocess.call(["/etc/rc.d/ntpd", "stop"])
+        subprocess.call(["ntpdate", ref_server])
+        subprocess.call(["/etc/rc.d/ntpd", "restart"])
+        time.sleep(5)
+        
+    return
 
 def get_offset(raw_output = False):
     """Returns the offset between the client and the reference server. It first performs a check to see if ntpd is running.
@@ -26,16 +48,8 @@ def get_offset(raw_output = False):
     """
     #ref_server = config["hipat_reference"]  #ntp reference server
     ref_server = "17.72.148.53"
-    logfile.debug("Ref server set to: {0}".format(ref_server))
     
-    #if Ntpd isn't running we set the date manually and restart the service.
-    ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
-    if (ntpd_status != 0):
-        logger.warn("ntpd not running, restarting service")
-        subprocess.call(["/etc/rc.d/ntpd", "stop"])
-        subprocess.call(["ntpdate", ref_server])
-        subprocess.call(["/etc/rc.d/ntpd", "restart"])
-        time.sleep(120)
+    ntpd_running()  #Make sure ntpd is running
     
     ntpq_output = subprocess.check_output(['ntpq', '-pn'])
     if raw_output:
@@ -92,6 +106,8 @@ def get_quality_offset():
         logfile.debug("New offset List: {2} New avg: {0} New std: {1}".format(old_average, old_std, offset_list))
         
         if new_std <= old_std and new_std <= std_limit:   #If the standard deviation is improving and is under the limit.
+            confident_result = True
+        elif new_std <= std_limit/10.0: #if the standard deviation is smaller than 1/10th of the limit it is approved.
             confident_result = True
         else:   #if the new_std is larger than old_std (i.e. not improving) and is below the std_limit
             time.sleep(20)

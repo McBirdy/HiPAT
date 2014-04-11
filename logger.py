@@ -19,11 +19,11 @@ def init_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
-    fh = logging.FileHandler(os.path.join(config['program_path'],'errors.log'))
+    fh = logging.FileHandler(os.path.join(config['temporary_storage'],'errors.log'))
     fh.setLevel(logging.WARNING)    #Default level for file logging set to WARNING
     # create console handler with a higher log level
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)       #Default level for console logging set to INFO
+    ch.setLevel(logging.INFO)       #Default level for console logging set to INFO
     # create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
