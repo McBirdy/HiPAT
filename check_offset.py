@@ -5,7 +5,7 @@ Performs a check of the offset to the reference NTP server. Evaluates over time 
 returns: offset in ms to the reference server.
 """
 
-#from config import config
+from config import config
 import subprocess
 import time
 import sys
@@ -14,10 +14,9 @@ import re
 import datetime
 import math
 import logger
-#from config import config
 
 #initialize the logger
-#logfile = logger.init_logger('check_offset')
+logfile = logger.init_logger('check_offset')
 
 def ntpd_running():
     """Will make sure ntpd is running. If ntpd has stopped the offset to the reference server can have been to great, 
@@ -26,8 +25,8 @@ def ntpd_running():
     
     returns: none
     """
-    #ref_server = config["hipat_reference"]
-    ref_server = "17.72.148.53"
+    ref_server = config["hipat_reference"]
+    #ref_server = "17.72.148.53"
     
     #if Ntpd isn't running we set the date manually and restart the service.
     ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
@@ -46,8 +45,8 @@ def get_offset(raw_output = False):
     raw_output: return the complete ntpq -pn output
     returns: offset in ms to the reference server.
     """
-    #ref_server = config["hipat_reference"]  #ntp reference server
-    ref_server = "17.72.148.53"
+    ref_server = config["hipat_reference"]  #ntp reference server
+    #ref_server = "17.72.148.53"
     
     ntpd_running()  #Make sure ntpd is running
     
@@ -87,8 +86,10 @@ def get_quality_offset():
     std_limit = 1.0             # Standard deviation limit, this will increase for every loop.
     
     #Perform 10 get offsets to get an initial data set
+    logfile.debug("Will perform 10 get offsets")
     for x in range(10):
         offset_list.append(get_offset())
+        logfile.debug(str(offset_list))
         time.sleep(20)  #Sleep for 20 seconds. NTP update time is 16 seconds
     
     #Additional offsets are attained every loop and the standard deviation is evaluated.
@@ -106,8 +107,10 @@ def get_quality_offset():
         logfile.debug("New offset List: {2} New avg: {0} New std: {1}".format(old_average, old_std, offset_list))
         
         if new_std <= old_std and new_std <= std_limit:   #If the standard deviation is improving and is under the limit.
+            logfile.debug("std. dev. is improving and under the limit, new_avg: {0}, new_std: {1}".format(new_average, new_std))
             confident_result = True
-        elif new_std <= std_limit/10.0: #if the standard deviation is smaller than 1/10th of the limit it is approved.
+        elif new_std <= std_limit/3.0: #if the standard deviation is smaller than 1/3rd of the limit it is approved.
+            logfile.debug("std. dev. is smaller than 1/3 of limit, new_std: {0}".format(new_std))
             confident_result = True
         else:   #if the new_std is larger than old_std (i.e. not improving) and is below the std_limit
             time.sleep(20)
