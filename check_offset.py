@@ -39,24 +39,55 @@ def ntpd_running():
         
     return
 
-def get_offset(raw_output = False):
-    """Returns the offset between the client and the reference server. It first performs a check to see if ntpd is running.
+def get_offset(ref_server = config["hipat_reference"], offset = True, **kwarg):
+    """Returns the offset between the client and the specified ref_server. It first performs a check to see if ntpd is running.
     
-    raw_output: return the complete ntpq -pn output
-    returns: offset in ms to the reference server.
+    ref_server: string of ip to filter by, default is the reference
+    offset: set to True if offset is part of the return statement
+    **kwarg: all other required feedback, 
+    
+    returns: if only 1 return value is specified it is returned specifically, other than that a dict containing the values is returned.
     """
-    ref_server = config["hipat_reference"]  #ntp reference server
-    #ref_server = "17.72.148.53"
-    
-    ntpd_running()  #Make sure ntpd is running
+    #ntpd_running()  # make sure ntpd is running
     
     ntpq_output = subprocess.check_output(['ntpq', '-pn'])
-    if raw_output:
-        return ntpq_output
-    regex = "%s.*?([\d\.-]*)\s+[\d.]*$" %(ref_server)
-    offset_ref = re.search(regex, ntpq_output, re.MULTILINE)
-    offset_ref = float(offset_ref.group(1))
-    return offset_ref
+    regex = (   '(?P<ref_server>{0})\s+'# ref_server
+                '(?P<refid>\S+)\s+'     # refid 
+                '(?P<st>\S+)\s+'        # stratum
+                '(?P<t>\S+)\s+'         # type of server
+                '(?P<when>\S+)\s+'      # when, time since last update
+                '(?P<poll>\S+)\s+'      # poll, how often it is polled
+                '(?P<reach>\S+)\s+'     # how reliable the server is
+                '(?P<delay>\S+)\s+'     # time in ms to the server
+                '(?P<offset>\S+)\s+'    # offset to server in ms
+                '(?P<jitter>\S+)\s+'    # jitter of the server
+    ).format(ref_server)
+    output = re.search(regex, ntpq_output, re.MULTILINE)    # search for the line
+    
+    arguments_wanted = dict({'offset': offset}.items() + kwarg.items())
+    
+    return_output = {}  # A dict used for return values, it's size varies with what the user wants returned.
+    for argument, value in arguments_wanted.iteritems():    # loop through the arguments provided, processing the ones that are True.
+        if argument.lower() == 'when' and value == True:
+            when_output = output.group('when')          # A test is made to see if the when variable is using m: minutes, h: hours, d: days
+            if when_output == '-':
+                when_output = 0
+            elif when_output[-1] == 'm':
+                when_output = float(when_output[:-1]) * 60
+            elif when_output[-1] == 'h':
+                when_output = float(when_output[:-1]) * 3600
+            elif when_output[-1] == 'd':
+                when_output = float(when_output[:-1]) * 86400
+            return_output['when'] = float(when_output)
+        elif value == True: # All True values will be processed here.
+            try:
+                return_output[argument.lower()] = float(output.group(argument.lower()))
+            except ValueError:  # If they contain string only characters they are exported as strings. 
+                return_output[argument.lower()] = output.group(argument.lower())
+    if len(return_output) == 1:
+        return return_output.values()[0]
+    return return_output
+    
 
 def calculate_average_std(offset_list):
     """Will calculate an average and standard deviation based on the offset provided. 

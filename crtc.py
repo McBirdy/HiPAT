@@ -61,27 +61,18 @@ class Crtc():
     
         returns: Returns a boolean regarding the status of the Crtc.
         """
-        regex = '127\.127\.20\.0.+l\s+([\w|-]+).*?([\d\.-]*)\s+[\d.]*$'
-        #regex = '17\.72\.148\.53.+u\s+([\w|-]+).*?([\d\.-]*)\s+[\d.]*$'
         when = []   # Will hold our two answers showing when ntpd was updated
     
         # We loop twice, to capture two when-timestamps.
         logfile.debug("Looping twice to capture two timestamps.")
         for x in range(2):
             # Get output from the crtc using the check_offset method
-            ntpq_output = check_offset.get_offset(True)
-            matches = re.search(regex, ntpq_output, re.MULTILINE)
-            when_temporary = matches.group(1)   # Create a temporary variable to check for "-", this is equivalent to 0
-            if when_temporary == "-":
-                when_temporary = 0
-            else:
-                when_temporary = int(when_temporary)    # It is first returned as a string
+            ntpq_output = check_offset.get_offset(offset = False, when = True)
             when.append(when_temporary) # When was the last update from the crtc received. If never received it is "-"
             if x == 0:
                 time.sleep(20)  # We sleep for 20 seconds to make sure we go past 16 seconds.
     
         # To make sure the crtc is updating we perform a check for the total.
-        print when
         if sum(when) >= 34:     # The maximum number a single valid when-reading can have is 17.
             # Not valid
             logfile.warn("Time updates from Crtc not received in a long time.")
