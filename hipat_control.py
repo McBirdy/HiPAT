@@ -88,6 +88,16 @@ def check_file_lengths(length):
             continue            
         except IOError:
             logfile.info("No {0} present".format(os.path.basename(file)))
+        
+        try: 
+            file_size = int(os.path.getsize(file))
+            if file_size > 1048576:  # 1 MB
+                os.remove(file)
+            else:
+                continue
+        except OSError:
+            logfile.info("No {0} present".format(os.path.basename(file)))
+            
     return
     
 def make_adjust(ser, offset):
@@ -122,34 +132,23 @@ def main():
     When all these checks are done it resumes normal operation which is looped.    
     """
     # Some initialization
+    logfile.info("Initializing")
     check_running() # Check if hipat_control is already running.
     shelvefile()    # Creates and populates a shelvefile if none exists.
-    logfile.info("Initialization done")
     
     # Making sure the Crtc is functional.
-    logfile.info("Initializing Crtc.")
     ser = Crtc()
     ser.check_crtc()     
-    crtc_restart(ser)           # Check to see if the Crtc has restarted, this affects 
-    
-    #First time check_offset
-    logfile.info("First time offset adjustment: Started")
-    offset = check_offset.get_quality_offset()
-    while(not (-1 < offset < 1)):
-        logfile.info("Time adjustment needed, offset: {0}".format(offset))
-        make_adjust(ser, offset)
-        ser.check_crtc()
-        offset  = check_offset.get_quality_offset()
-    logfile.info("First time offset adjustment: Completed")
+    crtc_restart(ser)           # Check to see if the Crtc has restarted, this affects frequency adjust
         
     #Normal operation is resumed
     logfile.info("Normal operation is resumed")
     while(True):
         ser.check_crtc()
         offset = check_offset.get_quality_offset()
-        check_file_lengths(200)
+        check_file_lengths(200) 
         if not (-1 < offset <1):
-            logfile.info("Time adjustment needed, offset: {0}".format(offset))
+            logfile.info("Offset: {0}".format(offset))
             make_adjust(ser, offset)
             if config['freq_adj'] == True:
                 #Make a frequency adjust at the same time

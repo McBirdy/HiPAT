@@ -16,6 +16,7 @@ import math
 import sys
 import os
 import check_offset
+import subprocess
 
 #initialize the logger
 logfile = logger.init_logger('crtc')
@@ -48,11 +49,14 @@ class Crtc():
     
         number_of_fix_attempts = 0
         while not self.is_crtc_updating():   # While is_crtc_updating returns false
+            logfile.info("Crtc not answering, attempting to fix.")
             if number_of_fix_attempts > 5:
                 logfile.warn("Attempted to fix Crtc 5 times, to no use, now exiting.")
                 sys.exit()
             self.fix_crtc()
             number_of_fix_attempts += 1
+        if number_of_fix_attempts > 0:
+            logfile.info("Crtc is now fixed")
         return
     
     def is_crtc_updating(self):
@@ -70,7 +74,7 @@ class Crtc():
         logfile.debug("Looping twice to capture two timestamps.")
         for x in range(2):
             # Get output from the crtc using the check_offset method
-            ntpq_output = check_offset.get_offset(offset = False, when = True)
+            when_temporary = check_offset.get_offset(ref_server = "127.127.20.0", offset = False, when = True)
             when.append(when_temporary) # When was the last update from the crtc received. If never received it is "-"
             if x == 0:
                 time.sleep(20)  # We sleep for 20 seconds to make sure we go past 16 seconds.
