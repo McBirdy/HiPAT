@@ -40,16 +40,19 @@ class Crtc():
         return output
     
     def check_crtc(self):
-        """
+        """Links together the methods for fixing the crtc. If no updates are received it attempts to fix the problem
+        a maximum number of 5 times.
+        
+        returns: returns when the problem is fixed, or it will exit the program.
         """
     
         number_of_fix_attempts = 0
         while not self.is_crtc_updating():   # While is_crtc_updating returns false
-            self.fix_crtc()
-            number_of_fix_attempts += 1
             if number_of_fix_attempts > 5:
                 logfile.warn("Attempted to fix Crtc 5 times, to no use, now exiting.")
                 sys.exit()
+            self.fix_crtc()
+            number_of_fix_attempts += 1
         return
     
     def is_crtc_updating(self):
