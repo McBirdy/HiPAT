@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 """hipat_control.py controls all the processes that are needed for HiPAT to run. The program is to be launched when the system boots.
+
+Version 2.0
+- New improved check_offset
+- check_crtc and fix_crtc is fully implemented into crtc.py
+- Compatible with read only file system
+- Plenty of bug fixes
 """
 
 from crtc import Crtc
