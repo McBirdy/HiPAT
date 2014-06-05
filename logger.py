@@ -25,11 +25,14 @@ def init_logger(name):
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO)       #Default level for console logging set to INFO
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s-%(levelname)s-%(message)s','%Y-%m-%d %H:%M:%S') #%(name)s is commented out
     ch.setFormatter(formatter)
     fh.setFormatter(formatter)
     # add the handlers to logger
     logger.addHandler(ch)
     logger.addHandler(fh)
+    
+    #Create a running_output.txt file
+    open(os.path.join(config['temporary_storage'],'running_output.txt'), 'a').close()
     
     return logger

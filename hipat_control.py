@@ -23,7 +23,7 @@ def check_running():
     returns: address to pidfile
     """
     pid = str(os.getpid())
-    pidfile = "/tmp/check_offset.pid"
+    pidfile = "/mnt/tmpfs/check_offset.pid"
     
     if os.path.isfile(pidfile): #if a pidfile exists
         new_pid = file(pidfile, 'r').read()
@@ -75,29 +75,24 @@ def check_file_lengths(length):
                  os.path.join(config['temporary_storage'], 'running_output.txt')]
     for file in filepaths:
         try:
-            with open(file, 'r') as f:
-                lines = f.readlines()
-                if len(lines) > length:
-                    lines = lines[-length:]
-                else:
-                    continue
-            #if more than 200 lines are present only the last 200 are rewritten
-            with open(file, 'w') as c:
-                for line in lines:
-                    c.write(line)
-            continue            
+            os.path.isfile(file)
         except IOError:
-            logfile.info("No {0} present".format(os.path.basename(file)))
-        
-        try: 
-            file_size = int(os.path.getsize(file))
-            if file_size > 1048576:  # 1 MB
-                os.remove(file)
-            else:
-                continue
-        except OSError:
-            logfile.info("No {0} present".format(os.path.basename(file)))
+            logfile.debug("No {0} present".format(os.path.basename(file)))
             
+        # Check for file size first
+        file_size = int(os.path.getsize(file))
+        if file_size > 1048576:  # 1 MB
+            os.remove(file)   
+        
+        # Check number of lines    
+        with open(file, 'r') as f:
+            lines = f.readlines()
+            if len(lines) > length:
+                lines = lines[-length:]
+        #if more than 200 lines are present only the last 200 are rewritten
+        with open(file, 'w') as c:
+            for line in lines:
+                c.write(line)   
     return
     
 def make_adjust(ser, offset):
@@ -108,20 +103,20 @@ def make_adjust(ser, offset):
     """
     db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
     #Adjust time and date
-    logfile.info("Adjusting Date and Time")
     if -1000 > offset or offset > 1000:
         ser.date_time(offset)
         db['average'] = 0.0
         db.close()
+        logfile.info("Adjusted Date and Time")
         #time.sleep(60)     # Don't need to sleep. Check_offset will take time and wait for it to be stable.
         return
     
     #Adjust ms
-    logfile.info("Adjusting Milliseconds")
     while round(offset,1) >= 1 or round(offset,1) <= -1:
         ser.adjust_ms(offset)
         db['average'] = 0.0
         db.close()
+        logfile.info("Adjusted {0} Millisecond(s)".format(int(round(offset,0))))
         #time.sleep(60)     # Don't need to sleep. 
         return
     return    
@@ -132,14 +127,13 @@ def main():
     When all these checks are done it resumes normal operation which is looped.    
     """
     # Some initialization
-    logfile.info("Initializing")
     check_running() # Check if hipat_control is already running.
     shelvefile()    # Creates and populates a shelvefile if none exists.
     
     # Making sure the Crtc is functional.
     ser = Crtc()
-    ser.check_crtc()     
     crtc_restart(ser)           # Check to see if the Crtc has restarted, this affects frequency adjust
+    ser.check_crtc()     
         
     #Normal operation is resumed
     logfile.info("Normal operation is resumed")

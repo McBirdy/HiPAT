@@ -46,8 +46,8 @@ class Crtc():
         
         returns: returns when the problem is fixed, or it will exit the program.
         """
-    
         number_of_fix_attempts = 0
+        logfile.debug("Checking crtc functionality")
         while not self.is_crtc_updating():   # While is_crtc_updating returns false
             logfile.info("Crtc not answering, attempting to fix.")
             if number_of_fix_attempts > 5:
@@ -71,7 +71,6 @@ class Crtc():
         when = []   # Will hold our two answers showing when ntpd was updated
     
         # We loop twice, to capture two when-timestamps.
-        logfile.debug("Looping twice to capture two timestamps.")
         for x in range(2):
             # Get output from the crtc using the check_offset method
             when_temporary = check_offset.get_offset(ref_server = "127.127.20.0", offset = False, when = True)
@@ -138,8 +137,8 @@ class Crtc():
             if answer == "V":
                 logfile.info("Crtc output invalid, sending date and time.")
                 self.date_time(0)
-                logfile.info("Date and time set, sleeping while waiting for time to resync")
-                time.sleep(1800)
+                logfile.info("Date and time set on Crtc, ")
+                time.sleep(60)  
                 return
     
         # If the Crtc is sending valid updates the final problem could be that the date and time of the
@@ -165,7 +164,7 @@ class Crtc():
         #first the text is written, one letter at the time
         self.ser.open()
         for letter in text:
-            time.sleep(0.005)
+            time.sleep(0.3)     #0.3 seconds sleep turns out to be the best
             self.ser.write(letter)
           
         #If response is specified to be None, we skip the receive check
@@ -178,7 +177,7 @@ class Crtc():
             return answer
         except:
             self.ser.write('1111111111')    #the CRTC can hang while expecting more input
-            logfile.warn('Had to send 111111111')
+            logfile.warn('Send to Crtc, no response. Retrying.')
             self.ser.close()
             return 1
             
@@ -214,13 +213,16 @@ class Crtc():
             #First the delta is converted to a python timedelta object, a timedelta object accepts either seconds or microseconds. delta * 1000 is in microseconds.
             python_delta = datetime.timedelta(microseconds = delta * 1000)
             #the transmission takes time, so this is accounted for.
-            transmission_error = datetime.timedelta(microseconds = 343000)
-        
-            #Then the date is written
-            status_date = self.send('d' + datetime.datetime.utcnow().strftime("%d%m%Y"))
+            transmission_error = datetime.timedelta(seconds = 3)
+            
             #Then the time is written
             total_time = datetime.datetime.utcnow() + python_delta + transmission_error  #Time to write
             status_time = self.send('t' + total_time.strftime("%H%M%S%f")[:-3]) #Writing time
+            time.sleep(0.5)     #Let the Crtc process time update
+        
+            #Then the date is written
+            status_date = self.send('d' + datetime.datetime.utcnow().strftime("%d%m%Y"))
+            time.sleep(0.5)     #Sleep to let Crtc process before sending next command
             
             if status_date == 1 or status_time == 1:
                 continue

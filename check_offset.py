@@ -23,19 +23,19 @@ def ntpd_running():
     that means we will need to do a more direct time synchronization to the server.
     When ntpd_running() is complete the ntpd server is guaranteed to be running.
     
-    returns: none
+    returns: none if ntpd was running, returns "restarted" if there was a problem with ntpd.
     """
     ref_server = config["hipat_reference"]
-    #ref_server = "17.72.148.53"
     
     #if Ntpd isn't running we set the date manually and restart the service.
     ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
     if (ntpd_status != 0):
-        logger.warn("Ntpd not running, running ntpdate and restarting")
+        logfile.warn("Ntpd not running, running ntpdate and restarting")
         subprocess.call(["/etc/rc.d/ntpd", "stop"])
         subprocess.call(["ntpdate", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
         time.sleep(5)
+        return True
         
     return
 
@@ -44,12 +44,14 @@ def get_offset(ref_server = config["hipat_reference"], offset = True, **kwarg):
     
     ref_server: string of ip to filter by, default is the reference
     offset: set to True if offset is part of the return statement
-    **kwarg: all other required feedback, 
+    **kwarg: all other required feedback
+    multiple_offsets: one specific kwarg can be multiple_offsets, this is used when running ntpd_running.
     
     returns: if only 1 return value is specified it is returned specifically, other than that a dict containing the values is returned.
     """
-    #ntpd_running()  # make sure ntpd is running
-    
+    if ntpd_running() and ('multiple_offsets' in kwarg.keys()):  # test to make sure ntpd is running.
+        return "restarted"  #ntpd had to be restarted
+        
     ntpq_output = subprocess.check_output(['ntpq', '-pn'])
     regex = (   '(?P<ref_server>{0})\s+'# ref_server
                 '(?P<refid>\S+)\s+'     # refid 
@@ -84,6 +86,8 @@ def get_offset(ref_server = config["hipat_reference"], offset = True, **kwarg):
                 return_output[argument.lower()] = float(output.group(argument.lower()))
             except ValueError:  # If they contain string only characters they are exported as strings. 
                 return_output[argument.lower()] = output.group(argument.lower())
+            except IndexError:  # If an argument is not found in the regex results.
+                continue
     if len(return_output) == 1:
         return return_output.values()[0]
     return return_output
@@ -107,10 +111,17 @@ def calculate_average_std(offset_list):
     return average, standard_deviation
     
 def get_quality_offset():
-    """Will get the offset multiple times until it is sure of a range in the offset.
+    """Will get the offset multiple times until it is sure of a range in the offset. 
+    Before returning an offset it will make sure the crtc has synchronized first.
     
     returns: offset in float
     """
+    #Make sure the Crtc has synchronized before continuing.
+    sync_check = get_offset(ref_server = '127.127.20.0', jitter = True)
+    if not ((-0.5 < sync_check['offset'] < 0.5) and (-0.5 < sync_check['jitter'] < 0.5)):  # if the offset is larger than +- 0.5 ms we return a 0
+        logfile.debug("NTP not in sync, offset: {0} jitter: {1}".format(sync_check['offset'], sync_check['jitter']))
+        return 0
+    
     #Local variables used in this function
     offset_list = []            # List of the offsets, this list will always be 10 entries long.
     confident_result = False    # When the average is trusted this is used to exit while loop.
@@ -119,7 +130,11 @@ def get_quality_offset():
     #Perform 10 get offsets to get an initial data set
     logfile.debug("Will perform 10 get offsets")
     for x in range(10):
-        offset_list.append(get_offset())
+        offset = get_offset(multiple_offsets = True)
+        if offset == "restarted":
+            logfile.debug("NTPD restarted, aborting get_quality_offset")
+            return 0
+        offset_list.append(offset)
         logfile.debug(str(offset_list))
         time.sleep(20)  #Sleep for 20 seconds. NTP update time is 16 seconds
     
@@ -129,13 +144,12 @@ def get_quality_offset():
         
         #Calculate average and std of old dataset
         old_average, old_std = calculate_average_std(offset_list)
-        logfile.debug("Prev avg: {0} Prev std: {1} Std limit: {2}".format(old_average, old_std, std_limit))
         
         #Get another offset, update offset_list and calculate average and std
         offset_list.append(get_offset())
         offset_list = offset_list[1:]   #Remove first entry in list
         new_average, new_std = calculate_average_std(offset_list)   #Calculate new average and standard deviation
-        logfile.debug("New offset List: {2} New avg: {0} New std: {1}".format(old_average, old_std, offset_list))
+        logfile.debug("New offset List: {2} New avg: {0} New std: {1} Std limit: {3}".format(old_average, old_std, offset_list, std_limit))
         
         if new_std <= old_std and new_std <= std_limit:   #If the standard deviation is improving and is under the limit.
             logfile.debug("std. dev. is improving and under the limit, new_avg: {0}, new_std: {1}".format(new_average, new_std))

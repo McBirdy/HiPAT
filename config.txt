@@ -1,4 +1,4 @@
 serial_address: "/dev/ttyU0"
-hipat_reference: "158.112.116.40"
+hipat_reference: "158.112.160.8"
 freq_adj: False
 temporary_storage: "/mnt/tmpfs"
