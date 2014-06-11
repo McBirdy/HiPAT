@@ -2,3 +2,6 @@ serial_address: "/dev/ttyU0"
 hipat_reference: "158.112.160.8"
 freq_adj: False
 temporary_storage: "/mnt/tmpfs"
+sync_check_limit_offset: "0.5"
+sync_check_limit_jitter: "0.5"
+std_start_limit: "1.1"

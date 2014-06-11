@@ -117,15 +117,19 @@ def get_quality_offset():
     returns: offset in float
     """
     #Make sure the Crtc has synchronized before continuing.
+    offset_low = float(config['sync_check_limit_offset']) * -1.0
+    offset_high = float(config['sync_check_limit_offset'])
+    jitter_low = float(config['sync_check_limit_jitter']) * -1.0
+    jitter_high = float(config['sync_check_limit_jitter'])
     sync_check = get_offset(ref_server = '127.127.20.0', jitter = True)
-    if not ((-0.5 < sync_check['offset'] < 0.5) and (-0.5 < sync_check['jitter'] < 0.5)):  # if the offset is larger than +- 0.5 ms we return a 0
+    if not ((offset_low < sync_check['offset'] < offset_high) and (jitter_low < sync_check['jitter'] < jitter_high)):  # if the offset is larger than limit we return a 0
         logfile.debug("NTP not in sync, offset: {0} jitter: {1}".format(sync_check['offset'], sync_check['jitter']))
         return 0
     
     #Local variables used in this function
     offset_list = []            # List of the offsets, this list will always be 10 entries long.
     confident_result = False    # When the average is trusted this is used to exit while loop.
-    std_limit = 1.0             # Standard deviation limit, this will increase for every loop.
+    std_limit = float(config['std_start_limit'])             # Standard deviation limit, this will increase for every loop.
     
     #Perform 10 get offsets to get an initial data set
     logfile.debug("Will perform 10 get offsets")

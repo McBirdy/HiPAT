@@ -42,7 +42,16 @@ def create_dictionary():
         'freq_adj': False,
         
         # Temporary storage
-        'temporary_storage': "/mnt/tmpfs"
+        'temporary_storage': "/mnt/tmpfs",
+        
+        # Sync check limit offset
+        'sync_check_limit_offset': "0.5",
+        
+        # Sync check limit jitter
+        'sync_check_limit_jitter': "0.4",
+        
+        # Standard deviation limit used for quality offset
+        'std_start_limit': "1.0"
     }
     return defaults
     
