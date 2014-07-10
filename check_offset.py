@@ -12,91 +12,167 @@ import sys
 import shelve
 import re
 import datetime
+import math
 import logger
 
-logfile = logger.init_logger("check_offset")
+#initialize the logger
+logfile = logger.init_logger('check_offset')
 
-def get_offset(raw_output = False):
-    """Returns the offset between the client and the reference server. It first performs a check to see if ntpd is running.
+def ntpd_running():
+    """Will make sure ntpd is running. If ntpd has stopped the offset to the reference server can have been to great, 
+    that means we will need to do a more direct time synchronization to the server.
+    When ntpd_running() is complete the ntpd server is guaranteed to be running.
     
-    raw_output: return the complete ntpq -pn output
-    returns: offset in ms to the reference server.
+    returns: none if ntpd was running, returns "restarted" if there was a problem with ntpd.
     """
-    ref_server = config["hipat_reference"]  #ntp reference server
+    ref_server = config["hipat_reference"]
     
     #if Ntpd isn't running we set the date manually and restart the service.
     ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
     if (ntpd_status != 0):
-        logger.warn("ntpd not running, restarting service")
+        logfile.warn("Ntpd not running, running ntpdate and restarting")
         subprocess.call(["/etc/rc.d/ntpd", "stop"])
         subprocess.call(["ntpdate", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
-        time.sleep(120)
+        time.sleep(5)
+        return True
+        
+    return
+
+def get_offset(ref_server = config["hipat_reference"], offset = True, **kwarg):
+    """Returns the offset between the client and the specified ref_server. It first performs a check to see if ntpd is running.
     
-    ntpq_output = subprocess.check_output(['ntpq', '-pn'])
-    if raw_output:
-        return ntpq_output
-    regex = "%s.*?([\d\.-]*)\s+[\d.]*$" %(ref_server)
-    offset_ref = re.search(regex, ntpq_output, re.MULTILINE)
-    offset_ref = float(offset_ref.group(1))
-    return offset_ref
-   
+    ref_server: string of ip to filter by, default is the reference
+    offset: set to True if offset is part of the return statement
+    **kwarg: all other required feedback
+    multiple_offsets: one specific kwarg can be multiple_offsets, this is used when running ntpd_running.
     
-def avg1(average, offset):
-    """Calculates a new average based on the previous average and the new offset.
-    returns: average
+    returns: if only 1 return value is specified it is returned specifically, other than that a dict containing the values is returned.
     """
-    new_average = (float(average) * (2.0/3)) + (float(offset) * (1.0/3))  
+    if ntpd_running() and ('multiple_offsets' in kwarg.keys()):  # test to make sure ntpd is running.
+        return "restarted"  #ntpd had to be restarted
+        
+    ntpq_output = subprocess.check_output(['ntpq', '-pn'])
+    regex = (   '(?P<ref_server>{0})\s+'# ref_server
+                '(?P<refid>\S+)\s+'     # refid 
+                '(?P<st>\S+)\s+'        # stratum
+                '(?P<t>\S+)\s+'         # type of server
+                '(?P<when>\S+)\s+'      # when, time since last update
+                '(?P<poll>\S+)\s+'      # poll, how often it is polled
+                '(?P<reach>\S+)\s+'     # how reliable the server is
+                '(?P<delay>\S+)\s+'     # time in ms to the server
+                '(?P<offset>\S+)\s+'    # offset to server in ms
+                '(?P<jitter>\S+)\s+'    # jitter of the server
+    ).format(ref_server)
+    output = re.search(regex, ntpq_output, re.MULTILINE)    # search for the line
+    
+    arguments_wanted = dict({'offset': offset}.items() + kwarg.items())
+    
+    return_output = {}  # A dict used for return values, it's size varies with what the user wants returned.
+    for argument, value in arguments_wanted.iteritems():    # loop through the arguments provided, processing the ones that are True.
+        if argument.lower() == 'when' and value == True:
+            when_output = output.group('when')          # A test is made to see if the when variable is using m: minutes, h: hours, d: days
+            if when_output == '-':
+                when_output = 0
+            elif when_output[-1] == 'm':
+                when_output = float(when_output[:-1]) * 60
+            elif when_output[-1] == 'h':
+                when_output = float(when_output[:-1]) * 3600
+            elif when_output[-1] == 'd':
+                when_output = float(when_output[:-1]) * 86400
+            return_output['when'] = float(when_output)
+        elif value == True: # All True values will be processed here.
+            try:
+                return_output[argument.lower()] = float(output.group(argument.lower()))
+            except ValueError:  # If they contain string only characters they are exported as strings. 
+                return_output[argument.lower()] = output.group(argument.lower())
+            except IndexError:  # If an argument is not found in the regex results.
+                continue
+    if len(return_output) == 1:
+        return return_output.values()[0]
+    return return_output
+    
+
+def calculate_average_std(offset_list):
+    """Will calculate an average and standard deviation based on the offset provided. 
+    
+    offset_list: list of offsets to be calculated upon.
+    
+    returns:
+    average: float with calculated average
+    std: float with calculated standard deviation
+    """
+    average = sum(offset_list) / float(len(offset_list))
+    
+    variance = map(lambda x: (x - average)**2, offset_list)
+    average_variance = sum(variance) / float(len(variance))
+    standard_deviation = math.sqrt(average_variance)
+
+    return average, standard_deviation
+    
+def get_quality_offset():
+    """Will get the offset multiple times until it is sure of a range in the offset. 
+    Before returning an offset it will make sure the crtc has synchronized first.
+    
+    returns: offset in float
+    """
+    #Make sure the Crtc has synchronized before continuing.
+    offset_low = float(config['sync_check_limit_offset']) * -1.0
+    offset_high = float(config['sync_check_limit_offset'])
+    jitter_low = float(config['sync_check_limit_jitter']) * -1.0
+    jitter_high = float(config['sync_check_limit_jitter'])
+    sync_check = get_offset(ref_server = '127.127.20.0', jitter = True)
+    if not ((offset_low < sync_check['offset'] < offset_high) and (jitter_low < sync_check['jitter'] < jitter_high)):  # if the offset is larger than limit we return a 0
+        logfile.debug("NTP not in sync, offset: {0} jitter: {1}".format(sync_check['offset'], sync_check['jitter']))
+        return 0
+    
+    #Local variables used in this function
+    offset_list = []            # List of the offsets, this list will always be 10 entries long.
+    confident_result = False    # When the average is trusted this is used to exit while loop.
+    std_limit = float(config['std_start_limit'])             # Standard deviation limit, this will increase for every loop.
+    
+    #Perform 10 get offsets to get an initial data set
+    logfile.debug("Will perform 10 get offsets")
+    for x in range(10):
+        offset = get_offset(multiple_offsets = True)
+        if offset == "restarted":
+            logfile.debug("NTPD restarted, aborting get_quality_offset")
+            return 0
+        offset_list.append(offset)
+        logfile.debug(str(offset_list))
+        time.sleep(20)  #Sleep for 20 seconds. NTP update time is 16 seconds
+    
+    #Additional offsets are attained every loop and the standard deviation is evaluated.
+    logfile.debug("Performed 10 get offsets: {0}".format(offset_list))
+    while(confident_result == False):
+        
+        #Calculate average and std of old dataset
+        old_average, old_std = calculate_average_std(offset_list)
+        
+        #Get another offset, update offset_list and calculate average and std
+        offset_list.append(get_offset())
+        offset_list = offset_list[1:]   #Remove first entry in list
+        new_average, new_std = calculate_average_std(offset_list)   #Calculate new average and standard deviation
+        logfile.debug("New offset List: {2} New avg: {0} New std: {1} Std limit: {3}".format(old_average, old_std, offset_list, std_limit))
+        
+        if new_std <= old_std and new_std <= std_limit:   #If the standard deviation is improving and is under the limit.
+            logfile.debug("std. dev. is improving and under the limit, new_avg: {0}, new_std: {1}".format(new_average, new_std))
+            confident_result = True
+        elif new_std <= std_limit/3.0: #if the standard deviation is smaller than 1/3rd of the limit it is approved.
+            logfile.debug("std. dev. is smaller than 1/3 of limit, new_std: {0}".format(new_std))
+            confident_result = True
+        else:   #if the new_std is larger than old_std (i.e. not improving) and is below the std_limit
+            time.sleep(20)
+        std_limit += 0.05    #Increase the limit for every loop
+        
     return new_average
 
-def avg2(compare_interval, counter_steps, offset, db):
-    """Avg2 is called when a new offset is outside the compare_interval of the trusted_average. Avg2 makes sure that the new offset is stable before it is trusted. It does this by making sure that the new offset is repeated counter_steps number of times.
+def main():
+    """Will return the offset to the reference server in ms. 
     
-    compare_interval = how far appart the offsets can be from the average to be accepted.
-    counter_steps = how many superseding values within the compare interval needed to become a trusted value.
-    offset: offset to the ntp reference
-    db: shelve file with trusted_average
-    
-    returns: nothing, but has updated the shelve file
+    return: offset in ms as float    
     """
-    untrusted_average = offset  #this is the starting point
-    for count in range(counter_steps):  #number of times we need a stable value
-        high_interval = untrusted_average + compare_interval
-        low_interval = untrusted_average - compare_interval
-        offset = get_offset()   #we get a new offset value
-        if low_interval <= offset <= high_interval:
-            untrusted_average = avg1(untrusted_average, offset)
-            time.sleep(60)
-        else:
-            return
-    db['average'] = untrusted_average #it is now trusted
-    return
-            
-    
-    
-def main(compare_interval, counter_steps):
-    """reads in program arguments, creates a shelve file. Then it checks wheter we do an avg1 or avg2 calculation. Finally the new average is written to the shelf and printed out.
-    
-    compare_interval = how far appart the offsets can be from the average to be accepted.
-    counter_steps = how many superseding values within the compare interval needed to become a trusted value.
-    
-    """    
-    offset = get_offset()
-    db = shelve.open(config['program_path']+'shelvefile', 'c')
-    trusted_average = db['average'] #the trusted average is stored in the shelf
-    
-    #check to see if we can perform average 1 calculation
-    high_interval = trusted_average + compare_interval
-    low_interval = trusted_average - compare_interval
-    if low_interval <= offset <= high_interval:
-        new_average = avg1(trusted_average, offset)
-        db['average'] = new_average #the new average is saved
-    else:
-        avg2(compare_interval, counter_steps, offset, db)
-    
-    new_average = db['average']
-    db.close()
-    return new_average   
+    print get_quality_offset()
 
 if __name__ == '__main__':
     main()

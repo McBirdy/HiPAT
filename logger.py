@@ -19,27 +19,20 @@ def init_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
-    fh = logging.FileHandler(config['program_path']+'errors.log')
-    fh.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(os.path.join(config['temporary_storage'],'errors.log'))
+    fh.setLevel(logging.WARNING)    #Default level for file logging set to WARNING
     # create console handler with a higher log level
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO)       #Default level for console logging set to INFO
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s-%(levelname)s-%(message)s','%Y-%m-%d %H:%M:%S') #%(name)s is commented out
     ch.setFormatter(formatter)
     fh.setFormatter(formatter)
     # add the handlers to logger
     logger.addHandler(ch)
     logger.addHandler(fh)
     
+    #Create a running_output.txt file
+    open(os.path.join(config['temporary_storage'],'running_output.txt'), 'a').close()
+    
     return logger
-
-def print_output(output):
-    """print_output is used to update the stdout with new information. It will time tag all the messages printed.
-    
-    output: what will be printed   
-    """
-    time_tag = datetime.datetime.now()
-    sys.stdout.write("{0} - {1}\n".format(time_tag, output))
-    sys.stdout.flush()
-    
