@@ -296,11 +296,17 @@ class Crtc():
         if crtc_restart:
             db['freq_adj'] = [datetime.datetime.now(), steps]
             db.close()
+            f = open('/mnt/tmpfs/log_freq_just.txt', 'a')
+            f.write("{0} {1} {2} {3} ".format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"), steps, 0, 0))
+            f.close()
             return steps
         else:
             total_steps = db['freq_adj'][1] + steps
             db['freq_adj'] = [datetime.datetime.now(), total_steps]
             db.close()
+            f = open('/mnt/tmpfs/log_freq_just.txt', 'a')
+            f.write("{0} {1} {2} {3}".format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"), steps, total_steps, time_dif))
+            f.close()
             return total_steps
 
 
