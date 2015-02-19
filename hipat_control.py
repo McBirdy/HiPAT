@@ -56,7 +56,7 @@ def shelvefile():
         db['freq_adj'] = [datetime.datetime.now(), 0]
     if 'stable_system' not in db:
         db['stable_system'] = False
-    db['hipat_start'] = datetime.datetime.now()
+    db['hipat_start'] = datetime.datetime.now() # When the HiPAT program starts the time is saved
     db.close()
     return
     
@@ -90,12 +90,22 @@ def check_stable_system():
     db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
     
     # Check status of CRTC and ref_server
-    crtc_status = check_offset.get_offset(ref_server= "127.127.20.0", offset=True, jitter=True, reach=True)
-    ref_status = check_offset.get_offset(jitter=True, reach=True)
+    ntpq_info = []  # list to hold both CRTC and ref_server
+    ntpq_info.append(check_offset.get_offset(ref_server= "127.127.20.0", offset=True, jitter=True, reach=True))
+    ntpq_info.append(check_offset.get_offset(jitter=True, reach=True))
     
-            
-        
-
+    for server in ntpq_info:
+        if server['reach'] != 377:                  # If the reach is not 377
+            db['stable_system'] = False
+        elif server['jitter'] > 1.0:                # If the jitter is higher than 1.0
+            db['stable_system'] = False
+        elif not (-2.0 < server['offset'] < 2.0):   # If the offset is larger than +- 2.0 ms
+            db['stable_system'] = False
+    
+    #### if hipat_start is very early stable system is also false
+    #### if all else is good the stable system is True
+    #### Make sure that stable_system is set to false other places in the system, by fix_crtc, date_time etc.
+    #### Call check_stable_system from the main loop at the right places
 
 def check_file_lengths(length):
     """To make sure the storage capacity of the HiPAT system doesn't fill up a regular check of the log files is done. 
