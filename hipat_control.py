@@ -54,6 +54,9 @@ def shelvefile():
         db['average'] = 0
     if 'freq_adj' not in db:
         db['freq_adj'] = [datetime.datetime.now(), 0]
+    if 'stable_system' not in db:
+        db['stable_system'] = False
+    db['hipat_start'] = datetime.datetime.now()
     db.close()
     return
     
@@ -68,6 +71,30 @@ def crtc_restart(ser):
         logfile.info('Crtc restart, freq_adj is called.')
         ser.freq_adj(True) 
     return
+    
+def check_stable_system():
+    """checks that the system has come to a so called "stable" state. When the system is not stable no frequency adjustments are to be made.
+    This makes sure that the frequency of the oscillator is not adjusted due to false adjustments made by NTP. Normally a frequency adjustment
+    is made when the offset is adjusted, but there are several instances where the frequency adjustment is not wanted:
+    1. If the HiPAT has just started it might have to adjust an offset caused by the CRTC simply being switched of.
+    2. If an error occurs with the CRTC the fix_crtc() method is called, this will most likely cause the offset to be affected.
+    
+    To prevent these two cases from messing up the frequency_adjustment a system status called 'stable_system' is saved in the shelvefile.
+    This method is the only one that sets 'stable_system' to True. 
+    It will set it to True based on two factors:
+    1. If the system booted within the last 10 minutes no frequency_adjustments are made.
+    2. Will check that both cesium and ref addresses are within +-2 ms. 
+    
+    returns: None
+    """
+    db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
+    
+    # Check status of CRTC and ref_server
+    crtc_status = check_offset.get_offset(ref_server= "127.127.20.0", offset=True, jitter=True, reach=True)
+    ref_status = check_offset.get_offset(jitter=True, reach=True)
+    
+            
+        
 
 
 def check_file_lengths(length):
