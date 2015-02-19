@@ -145,6 +145,10 @@ def get_quality_offset():
     #Additional offsets are attained every loop and the standard deviation is evaluated.
     logfile.debug("Performed 10 get offsets: {0}".format(offset_list))
     while(confident_result == False):
+        # Test to see whether the reference server is actually reachable and stable
+        if get_offset(reach = True)['reach'] != 377:
+            logfile.debug("Reference server not stable (reach != 377), exiting check_offset.")
+            return 0
         
         #Calculate average and std of old dataset
         old_average, old_std = calculate_average_std(offset_list)
