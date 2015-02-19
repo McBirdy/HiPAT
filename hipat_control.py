@@ -65,8 +65,8 @@ def crtc_restart(ser):
     crtc_restart = ser.send('p', 'PSRFTXT,(Y|N)')
     if crtc_restart == 'Y':
         #reset the previous freq_adj by calling it with a True variable
-        logfile.info('Crtc restart, freq_adj is called, (commented out for now)')
-        #ser.freq_adj(True) 
+        logfile.info('Crtc restart, freq_adj is called.')
+        ser.freq_adj(True) 
     return
 
 
