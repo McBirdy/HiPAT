@@ -46,9 +46,13 @@ class Crtc():
         
         returns: returns when the problem is fixed, or it will exit the program.
         """
+        db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
+        
         number_of_fix_attempts = 0
         logfile.debug("Checking crtc functionality")
-        while not self.is_crtc_updating():   # While is_crtc_updating returns false
+        while not self.is_crtc_updating():  # While is_crtc_updating returns false
+            db['stable_system'] = False     # It is not updating, thus the system is not stable
+            
             logfile.info("Crtc not answering, attempting to fix.")
             if number_of_fix_attempts > 5:
                 logfile.warn("Attempted to fix Crtc 5 times, to no use, now exiting.")
@@ -57,6 +61,7 @@ class Crtc():
             number_of_fix_attempts += 1
         if number_of_fix_attempts > 0:
             logfile.info("Crtc is now fixed")
+        db.close()
         return
     
     def is_crtc_updating(self):
@@ -304,9 +309,6 @@ class Crtc():
             total_steps = db['freq_adj'][1] + steps
             db['freq_adj'] = [datetime.datetime.now(), total_steps]
             db.close()
-            f = open('/mnt/tmpfs/log_freq_just.txt', 'a')
-            f.write("{0} {1} {2} {3}".format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"), steps, total_steps, time_dif))
-            f.close()
             return total_steps
 
 

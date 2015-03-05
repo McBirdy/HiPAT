@@ -97,13 +97,27 @@ def check_stable_system():
     for server in ntpq_info:
         if server['reach'] != 377:                  # If the reach is not 377
             db['stable_system'] = False
+            db.close()
+            return False
         elif server['jitter'] > 1.0:                # If the jitter is higher than 1.0
             db['stable_system'] = False
+            db.close()            
+            return False
         elif not (-2.0 < server['offset'] < 2.0):   # If the offset is larger than +- 2.0 ms
             db['stable_system'] = False
+            db.close()
+            return False
     
-    #### if hipat_start is very early stable system is also false
-    #### if all else is good the stable system is True
+    # if hipat_start is very early stable system is also false
+    if datetime.datetime.now() - db['hipat_start'] < datetime.timedelta(seconds=600):   # If program started within last 10 minutes
+        db['stable_system'] = False
+        db.close()
+        return False
+    else:
+        db['stable_system'] = True        
+        db.close()
+        return True
+        
     #### Make sure that stable_system is set to false other places in the system, by fix_crtc, date_time etc.
     #### Call check_stable_system from the main loop at the right places
 
@@ -149,9 +163,9 @@ def make_adjust(ser, offset):
     if -1000 > offset or offset > 1000:
         ser.date_time(offset)
         db['average'] = 0.0
+        db['stable_system'] = False
         db.close()
         logfile.info("Adjusted Date and Time")
-        #time.sleep(60)     # Don't need to sleep. Check_offset will take time and wait for it to be stable.
         return
     
     #Adjust ms
@@ -160,7 +174,6 @@ def make_adjust(ser, offset):
         db['average'] = 0.0
         db.close()
         logfile.info("Adjusted {0} Millisecond(s)".format(int(round(offset,0))))
-        #time.sleep(60)     # Don't need to sleep. 
         return
     return    
     
@@ -187,7 +200,7 @@ def main():
         if not (-1 < offset <1):
             logfile.info("Offset: {0}".format(offset))
             make_adjust(ser, offset)
-            if config['freq_adj'] == True:
+            if config['freq_adj'] == "1" and check_stable_system:
                 #Make a frequency adjust at the same time
                 total_steps = ser.freq_adj(False, offset)
                 logfile.info("Total freq_adj steps: {0}".format(total_steps))

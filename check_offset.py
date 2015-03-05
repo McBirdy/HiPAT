@@ -26,6 +26,7 @@ def ntpd_running():
     returns: none if ntpd was running, returns "restarted" if there was a problem with ntpd.
     """
     ref_server = config["hipat_reference"]
+    db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
     
     #if Ntpd isn't running we set the date manually and restart the service.
     ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
@@ -34,6 +35,8 @@ def ntpd_running():
         subprocess.call(["/etc/rc.d/ntpd", "stop"])
         subprocess.call(["ntpdate", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
+        db['stable_system'] = False     # The system can not be trusted to be stable
+        db.close()
         time.sleep(5)
         return True
         
