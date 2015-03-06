@@ -254,6 +254,13 @@ class Crtc():
     
     def freq_adj(self, crtc_restart=False, offset=0):
         """frequency adjust will monitor the long term stability of the oscillator, and will attempt to adjust the frequency to improve stability.
+        The function created to determine the number of steps to adjust is: 800000*math.e**(-abs(error_size)/250000.0) + 250
+        Where error_size is the seconds spent to drift a certain offset divided by the offset.
+        This function gives us the following steps for a 1ms drift:
+        1 hour = 788812 steps
+        1 day = 566486 steps
+        1 week = 71444 steps
+        The minimum value has been set to 250 steps. This value will be hit after approximately 40 days.        
         
         crtc_restart: Indicates if the crtc has lost power thus having reset all previous frequency adjustments.
         offset: if the offset has been larger than +-1ms we perform a new frequency adjustment. The offset is therefore needed.
@@ -275,7 +282,7 @@ class Crtc():
             time_dif = datetime.datetime.now() - time_1 #time it has taken to drift offset
             time_dif = time_dif.total_seconds() #convert time delta to seconds
             error_size = time_dif / float(offset)   #error_size indicates how quickly it has drifted
-            steps = 20000*math.e**(-abs(error_size)/170000.0)    #large error_size, more steps
+            steps = 800000*math.e**(-abs(error_size)/250000.0) + 250    #large error_size, more steps
             if offset < 0:  #if negative offset, steps should be negative
                 sign = '-'
             else:
