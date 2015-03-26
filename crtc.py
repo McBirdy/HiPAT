@@ -154,11 +154,12 @@ class Crtc():
         self.date_time(0)
         return
         
-    def send(self, text, response='PSRFTXT,(ACK)'):
+    def send(self, text, response='PSRFTXT,(ACK)', multiline_response = False):
         """Function used to write text to the serial port. A response from the CRTC is always expected, and if none is specified it will return 1.
         
         text: text to send.
         response: expected response.
+        multiline_response: The expected response contains newlines.
         returns: answer string if OK, 1 if no response was received.
         """
         #first the text is written, one letter at the time
@@ -172,8 +173,9 @@ class Crtc():
             self.ser.close()
             return 1
         #then we wait for the response
+        time.sleep(1)   # Necessary sleep to allow proper receive
         try:
-            answer = self.receive(response)    
+            answer = self.receive(response, multiline_response)    
             return answer
         except:
             self.ser.write('1111111111')    #the CRTC can hang while expecting more input
@@ -182,11 +184,12 @@ class Crtc():
             return 1
             
     @timeout(3) #this function will timeout after 3 seconds
-    def receive(self, regex):
+    def receive(self, regex, multiline = False):
         """Function used to extract a received answer from the serial port. User must provide a regex if a certain type of message is to be received.
         If it times out a TimeoutError is raised.
         
         regex: regular expression indicating what message it expects to receive back.
+        multiline: The expected response contains newlines.
         returns: string of match
         """
         global ser_buffer
@@ -194,6 +197,13 @@ class Crtc():
         while True:
             ser_buffer = ser_buffer + self.ser.read(self.ser.inWaiting()) #fills the buffer
             if '\n' in ser_buffer:  #if a complete line is received
+                if multiline:       # If the response is multiline no split needs to be done before regex
+                    match = re.search(regex, ser_buffer)
+                    if match:
+                        self.ser.close()
+                        ser_buffer = ''
+                        return match.group(1)
+                        
                 lines = ser_buffer.split('\n')
                 if lines[-2]:   #Access the complete line
                     match = re.search(regex, lines[-2])
