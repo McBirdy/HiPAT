@@ -70,7 +70,7 @@ class Led():
 				 2. 01 = 0,5 seconds between each blink
 				 3. 10 = 0,33 seconds between each blink
 				 4. 11 = 0.25 seconds between each blink """
-				 
+
 		if rgy.lower() == "yellow":
 			self.yellow[0] = LEDNF
 			self.yellow[1] = BlinkNF
@@ -90,9 +90,9 @@ class Led():
 
 	def update_led(self):
 		 # Updates the leds by using Crtc-function.
-		 ser.send(self.green)
-		 ser.send(self.yellow) 
-		 ser.send(self.red)
+		 ser.send(g)
+		 ser.send(y) 
+		 ser.send(r)
 
 
 
