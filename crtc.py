@@ -192,6 +192,10 @@ class Crtc():
         multiline: The expected response contains newlines.
         returns: string of match
         """
+        check_regex = re.search("\(.*\)", regex)
+        if check_regex == None:
+            logfile.critical("No group specified in serial receive regex")
+            return 1
         global ser_buffer
         #self.ser.open()    #it is opened by the send process.
         while True:
