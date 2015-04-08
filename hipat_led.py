@@ -1,11 +1,12 @@
 #HiPAT LED tester and addtional software
+from crtc import Crtc
 
 class Led():
 	def __init__(self): 
 		""" Sets a standard value for all variables in the Led-class
 		First off, there are 3 fields in each list for each color.
 		
-		update_led: This function will update the L
+		update_led: This function will update the Led
 
 		The code wich is going to be sent is G/Y/R and then four 0s or 1s depending on what you want the LEDs to do.
 		example: G1100 is Green LED for the G. The first 1 is telling that the LED is going to be on.
@@ -13,6 +14,7 @@ class Led():
 
 
 		"""
+		ser = Crtc()
 		self.yellow = [0, 0, 00]
 		self.red = [0, 0, 00]
 		self.green = [0, 0, 00]
@@ -29,8 +31,34 @@ class Led():
 
 		r = "R{0}{1}{2:02d}".format(self.red[0], self.red[1], self.red[2])
 
-		return y + "\n" + g + "\n" + r + "\n" # Will be changed
+
+		#return y + "\n" + g + "\n" + r + "\n" # Will be changed
 			
+	def test_led(self):
+		print ("Hello, this is a test-program for testing the different LED-diodes on diode-filter\n" 
+		"First of, choose the color you want to change:\n"
+		"G: Green\n"
+		"Y: Yellow\n"
+		"R: Red\n")
+		color = raw_input(":")
+
+		print "0: Off \n1: Off"
+		OnOff = raw_input(":")
+
+		print "0: No Blink\n1: Blink"
+		blinkornoblink = raw_input(":")
+
+		print ("00: 1 Second per blink\n"
+		"01 = 0,5 seconds between each blink"
+		"10 = 0,33 seconds between each blink"
+		"11 = 0.25 seconds between each blink")
+		blinkspeed = raw_input(":")
+
+		msg = "{0}{1}{2}{3}".format(color, OnOff, blinkornoblink, blinkspeed)
+
+		self.send(msg, response = 'None')
+
+
 
 	def color(self, rgy, LEDNF, BlinkNF, Bvalue):
 		"""
@@ -42,6 +70,7 @@ class Led():
 				 2. 01 = 0,5 seconds between each blink
 				 3. 10 = 0,33 seconds between each blink
 				 4. 11 = 0.25 seconds between each blink """
+				 
 		if rgy.lower() == "yellow":
 			self.yellow[0] = LEDNF
 			self.yellow[1] = BlinkNF
@@ -60,5 +89,14 @@ class Led():
 		self.update_led()
 
 	def update_led(self):
-	
-		 # print y + "\n" + g + "\n" + r + "\n" # Will not be in the final version
+		 # Updates the leds by using Crtc-function.
+		 ser.send(self.green)
+		 ser.send(self.yellow) 
+		 ser.send(self.red)
+
+
+
+
+
+
+
