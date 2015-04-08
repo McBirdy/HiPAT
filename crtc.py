@@ -163,7 +163,8 @@ class Crtc():
         returns: answer string if OK, 1 if no response was received.
         """
         #first the text is written, one letter at the time
-        self.ser.open()
+        if not self.ser.isOpen():    # If the port is closed it must be opened
+            self.ser.open()
         for letter in text:
             time.sleep(0.3)     #0.3 seconds sleep turns out to be the best
             self.ser.write(letter)
@@ -178,6 +179,8 @@ class Crtc():
             answer = self.receive(response, multiline_response)    
             return answer
         except:
+            if not self.ser.isOpen():    # If the port is closed it must be opened
+                self.ser.open()
             self.ser.write('1111111111')    #the CRTC can hang while expecting more input
             logfile.warn('Send to Crtc, no response. Retrying.')
             self.ser.close()

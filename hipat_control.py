@@ -19,6 +19,7 @@ import os
 import sys
 import shelve
 import subprocess
+import hipat_led
 
 #initialize the logger
 logfile = logger.init_logger('hipat_control')
@@ -139,7 +140,11 @@ def main():
     # Making sure the Crtc is functional.
     ser = Crtc()
     crtc_restart(ser)           # Check to see if the Crtc has restarted, this affects frequency adjust
-    ser.check_crtc()     
+    ser.check_crtc()    
+    
+    # Hipat_Led set to yellow status, this will also turn of the red color.
+    led = hipat_led.Led()
+    led.color("yellow", 1, 0, 00)    # Turn on yellow color
         
     #Normal operation is resumed
     logfile.info("Normal operation is resumed")
@@ -155,6 +160,7 @@ def main():
                 total_steps = ser.freq_adj(False, offset)
                 logfile.info("Total freq_adj steps: {0}".format(total_steps))
             logfile.info("Normal operation is resumed")
+        led.color("green", 1, 0, 00)
         time.sleep(60)
 
 if __name__ == '__main__':
