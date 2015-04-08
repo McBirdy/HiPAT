@@ -46,9 +46,13 @@ class Crtc():
         
         returns: returns when the problem is fixed, or it will exit the program.
         """
+        db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
+        
         number_of_fix_attempts = 0
         logfile.debug("Checking crtc functionality")
-        while not self.is_crtc_updating():   # While is_crtc_updating returns false
+        while not self.is_crtc_updating():  # While is_crtc_updating returns false
+            db['stable_system'] = False     # It is not updating, thus the system is not stable
+            
             logfile.info("Crtc not answering, attempting to fix.")
             if number_of_fix_attempts > 5:
                 logfile.warn("Attempted to fix Crtc 5 times, to no use, now exiting.")
@@ -57,6 +61,7 @@ class Crtc():
             number_of_fix_attempts += 1
         if number_of_fix_attempts > 0:
             logfile.info("Crtc is now fixed")
+        db.close()
         return
     
     def is_crtc_updating(self):
@@ -266,6 +271,13 @@ class Crtc():
     
     def freq_adj(self, crtc_restart=False, offset=0):
         """frequency adjust will monitor the long term stability of the oscillator, and will attempt to adjust the frequency to improve stability.
+        The function created to determine the number of steps to adjust is: 800000*math.e**(-abs(error_size)/250000.0) + 250
+        Where error_size is the seconds spent to drift a certain offset divided by the offset.
+        This function gives us the following steps for a 1ms drift:
+        1 hour = 788812 steps
+        1 day = 566486 steps
+        1 week = 71444 steps
+        The minimum value has been set to 250 steps. This value will be hit after approximately 40 days.        
         
         crtc_restart: Indicates if the crtc has lost power thus having reset all previous frequency adjustments.
         offset: if the offset has been larger than +-1ms we perform a new frequency adjustment. The offset is therefore needed.
@@ -287,7 +299,7 @@ class Crtc():
             time_dif = datetime.datetime.now() - time_1 #time it has taken to drift offset
             time_dif = time_dif.total_seconds() #convert time delta to seconds
             error_size = time_dif / float(offset)   #error_size indicates how quickly it has drifted
-            steps = 20000*math.e**(-abs(error_size)/170000.0)    #large error_size, more steps
+            steps = 800000*math.e**(-abs(error_size)/250000.0) + 250    #large error_size, more steps
             if offset < 0:  #if negative offset, steps should be negative
                 sign = '-'
             else:
@@ -313,6 +325,9 @@ class Crtc():
         if crtc_restart:
             db['freq_adj'] = [datetime.datetime.now(), steps]
             db.close()
+            f = open('/mnt/tmpfs/log_freq_just.txt', 'a')
+            f.write("{0} {1} {2} {3} ".format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"), steps, 0, 0))
+            f.close()
             return steps
         else:
             total_steps = db['freq_adj'][1] + steps

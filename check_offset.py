@@ -26,6 +26,7 @@ def ntpd_running():
     returns: none if ntpd was running, returns "restarted" if there was a problem with ntpd.
     """
     ref_server = config["hipat_reference"]
+    db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
     
     #if Ntpd isn't running we set the date manually and restart the service.
     ntpd_status = subprocess.call(["pgrep", "ntpd"], stdout=subprocess.PIPE)
@@ -34,6 +35,8 @@ def ntpd_running():
         subprocess.call(["/etc/rc.d/ntpd", "stop"])
         subprocess.call(["ntpdate", ref_server])
         subprocess.call(["/etc/rc.d/ntpd", "restart"])
+        db['stable_system'] = False     # The system can not be trusted to be stable
+        db.close()
         time.sleep(5)
         return True
         
@@ -145,6 +148,10 @@ def get_quality_offset():
     #Additional offsets are attained every loop and the standard deviation is evaluated.
     logfile.debug("Performed 10 get offsets: {0}".format(offset_list))
     while(confident_result == False):
+        # Test to see whether the reference server is actually reachable and stable
+        if get_offset(reach = True)['reach'] != 377:
+            logfile.debug("Reference server not stable (reach != 377), exiting check_offset.")
+            return 0
         
         #Calculate average and std of old dataset
         old_average, old_std = calculate_average_std(offset_list)

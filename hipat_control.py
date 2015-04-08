@@ -55,6 +55,9 @@ def shelvefile():
         db['average'] = 0
     if 'freq_adj' not in db:
         db['freq_adj'] = [datetime.datetime.now(), 0]
+    if 'stable_system' not in db:
+        db['stable_system'] = False
+    db['hipat_start'] = datetime.datetime.now() # When the HiPAT program starts the time is saved
     db.close()
     return
     
@@ -66,10 +69,58 @@ def crtc_restart(ser):
     crtc_restart = ser.send('p', 'PSRFTXT,(Y|N)')
     if crtc_restart == 'Y':
         #reset the previous freq_adj by calling it with a True variable
-        logfile.info('Crtc restart, freq_adj is called, (commented out for now)')
-        #ser.freq_adj(True) 
+        logfile.info('Crtc restart, freq_adj is called.')
+        ser.freq_adj(True) 
     return
-
+    
+def check_stable_system():
+    """checks that the system has come to a so called "stable" state. When the system is not stable no frequency adjustments are to be made.
+    This makes sure that the frequency of the oscillator is not adjusted due to false adjustments made by NTP. Normally a frequency adjustment
+    is made when the offset is adjusted, but there are several instances where the frequency adjustment is not wanted:
+    1. If the HiPAT has just started it might have to adjust an offset caused by the CRTC simply being switched of.
+    2. If an error occurs with the CRTC the fix_crtc() method is called, this will most likely cause the offset to be affected.
+    
+    To prevent these two cases from messing up the frequency_adjustment a system status called 'stable_system' is saved in the shelvefile.
+    This method is the only one that sets 'stable_system' to True. 
+    It will set it to True based on two factors:
+    1. If the system booted within the last 10 minutes no frequency_adjustments are made.
+    2. Will check that both cesium and ref addresses are within +-2 ms. 
+    
+    returns: None
+    """
+    db = shelve.open(os.path.join(config['temporary_storage'],'shelvefile'), 'c')
+    
+    # Check status of CRTC and ref_server
+    ntpq_info = []  # list to hold both CRTC and ref_server
+    ntpq_info.append(check_offset.get_offset(ref_server= "127.127.20.0", offset=True, jitter=True, reach=True))
+    ntpq_info.append(check_offset.get_offset(jitter=True, reach=True))
+    
+    for server in ntpq_info:
+        if server['reach'] != 377:                  # If the reach is not 377
+            db['stable_system'] = False
+            db.close()
+            return False
+        elif server['jitter'] > 1.0:                # If the jitter is higher than 1.0
+            db['stable_system'] = False
+            db.close()            
+            return False
+        elif not (-2.0 < server['offset'] < 2.0):   # If the offset is larger than +- 2.0 ms
+            db['stable_system'] = False
+            db.close()
+            return False
+    
+    # if hipat_start is very early stable system is also false
+    if datetime.datetime.now() - db['hipat_start'] < datetime.timedelta(seconds=600):   # If program started within last 10 minutes
+        db['stable_system'] = False
+        db.close()
+        return False
+    else:
+        db['stable_system'] = True        
+        db.close()
+        return True
+        
+    #### Make sure that stable_system is set to false other places in the system, by fix_crtc, date_time etc.
+    #### Call check_stable_system from the main loop at the right places
 
 def check_file_lengths(length):
     """To make sure the storage capacity of the HiPAT system doesn't fill up a regular check of the log files is done. 
@@ -113,9 +164,9 @@ def make_adjust(ser, offset):
     if -1000 > offset or offset > 1000:
         ser.date_time(offset)
         db['average'] = 0.0
+        db['stable_system'] = False
         db.close()
         logfile.info("Adjusted Date and Time")
-        #time.sleep(60)     # Don't need to sleep. Check_offset will take time and wait for it to be stable.
         return
     
     #Adjust ms
@@ -124,7 +175,6 @@ def make_adjust(ser, offset):
         db['average'] = 0.0
         db.close()
         logfile.info("Adjusted {0} Millisecond(s)".format(int(round(offset,0))))
-        #time.sleep(60)     # Don't need to sleep. 
         return
     return    
     
@@ -155,7 +205,7 @@ def main():
         if not (-1 < offset <1):
             logfile.info("Offset: {0}".format(offset))
             make_adjust(ser, offset)
-            if config['freq_adj'] == True:
+            if config['freq_adj'] == "1" and check_stable_system:
                 #Make a frequency adjust at the same time
                 total_steps = ser.freq_adj(False, offset)
                 logfile.info("Total freq_adj steps: {0}".format(total_steps))
