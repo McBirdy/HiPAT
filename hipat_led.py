@@ -1,7 +1,10 @@
 #HiPAT LED tester and addtional software
 from crtc import Crtc
+import logger
 
 class Led():
+	logfile = logger.init_logger("hipat_led")
+
 	def __init__(self): 
 		""" Sets a standard value for all variables in the Led-class
 		First off, there are 3 fields in each list for each color.
@@ -32,7 +35,7 @@ class Led():
 		r = "R{0}{1}{2:02d}".format(self.red[0], self.red[1], self.red[2])
 
 
-		#return y + "\n" + g + "\n" + r + "\n" # Will be changed
+		return y + "\n" + g + "\n" + r # Will be changed
 			
 	def test_led(self):
 		print ("Hello, this is a test-program for testing the different LED-diodes on diode-filter\n" 
@@ -90,13 +93,16 @@ class Led():
 
 	def update_led(self):
 		 # Updates the leds by using Crtc-function.
-		 ser.send(g)
-		 ser.send(y) 
-		 ser.send(r)
+		 def sendled():
+		 	ser.send(g, None)
+		 	ser.send(y, None) 
+		 	ser.send(r, None)
 
+	  	status = ser.send("K",.....)
+	 	optimal = __init__
 
-
-
-
-
-
+	 	for tries in range(0,5):
+	 		sendled():
+	 		if status != optimal:
+	 			return
+	 	logfile.warn("WARNING: 'hipat_led' could not update the LED's properly")
