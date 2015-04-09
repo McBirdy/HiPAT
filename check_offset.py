@@ -113,10 +113,11 @@ def calculate_average_std(offset_list):
 
     return average, standard_deviation
     
-def get_quality_offset():
+def get_quality_offset(led = None):
     """Will get the offset multiple times until it is sure of a range in the offset. 
     Before returning an offset it will make sure the crtc has synchronized first.
     
+    led: the led object to control the led status 
     returns: offset in float
     """
     #Make sure the Crtc has synchronized before continuing.
@@ -152,6 +153,9 @@ def get_quality_offset():
         if get_offset(reach = True)['reach'] != 377:
             logfile.debug("Reference server not stable (reach != 377), exiting check_offset.")
             return 0
+        
+        # To indicate that an extended get_offset has begun the led will blink green
+        led.colour("Green", 1, 1, 01)  # Will blink
         
         #Calculate average and std of old dataset
         old_average, old_std = calculate_average_std(offset_list)

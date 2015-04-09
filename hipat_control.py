@@ -73,7 +73,7 @@ def crtc_restart(ser):
         ser.freq_adj(True) 
     return
     
-def check_stable_system():
+def check_stable_system(led):
     """checks that the system has come to a so called "stable" state. When the system is not stable no frequency adjustments are to be made.
     This makes sure that the frequency of the oscillator is not adjusted due to false adjustments made by NTP. Normally a frequency adjustment
     is made when the offset is adjusted, but there are several instances where the frequency adjustment is not wanted:
@@ -97,30 +97,39 @@ def check_stable_system():
     
     for server in ntpq_info:
         if server['reach'] != 377:                  # If the reach is not 377
+            logfile.warn("Reach for server: {0} is not 377, stable_system set to False").format(server['ref_server'])
+            led.color("Yellow", 1, 0, 0)
             db['stable_system'] = False
             db.close()
             return False
         elif server['jitter'] > 1.0:                # If the jitter is higher than 1.0
+            logfile.warn("Jitter for server: {0} is not under 1.0, stable_system set to False").format(server['ref_server'])
+            led.color("Yellow", 1, 0, 0)
             db['stable_system'] = False
             db.close()            
             return False
         elif not (-2.0 < server['offset'] < 2.0):   # If the offset is larger than +- 2.0 ms
+            logfile.warn("Reach for server: {0} is not 377, stable_system set to False").format(server['ref_server'])
+            led.colour("Yellow", 1, 0, 0)
             db['stable_system'] = False
             db.close()
             return False
     
     # if hipat_start is very early stable system is also false
     if datetime.datetime.now() - db['hipat_start'] < datetime.timedelta(seconds=600):   # If program started within last 10 minutes
+        logfile.debug("Hipat has just booted, yellow led status has been set")
+        led.color("Yellow", 1, 0, 0)
         db['stable_system'] = False
         db.close()
         return False
     else:
-        db['stable_system'] = True        
+        db['stable_system'] = True 
+        # Set only the green light active, all is OK    
+        led.color("Green", 1, 0, 0)
+        led.color("Red", 0, 0, 0)
+        led.color("Yellow", 0, 0 ,0) 
         db.close()
         return True
-        
-    #### Make sure that stable_system is set to false other places in the system, by fix_crtc, date_time etc.
-    #### Call check_stable_system from the main loop at the right places
 
 def check_file_lengths(length):
     """To make sure the storage capacity of the HiPAT system doesn't fill up a regular check of the log files is done. 
@@ -192,25 +201,24 @@ def main():
     crtc_restart(ser)           # Check to see if the Crtc has restarted, this affects frequency adjust
     ser.check_crtc()    
     
-    # Hipat_Led set to yellow status, this will also turn of the red color.
+    # Hipat_led initialized. 
     led = hipat_led.Led()
-    led.color("yellow", 1, 0, 00)    # Turn on yellow color
         
     #Normal operation is resumed
     logfile.info("Normal operation is resumed")
     while(True):
         ser.check_crtc()
-        offset = check_offset.get_quality_offset()
+        offset = check_offset.get_quality_offset(led)
         check_file_lengths(200) 
+        system_status = check_stable_system(led)
         if not (-1 < offset <1):
             logfile.info("Offset: {0}".format(offset))
             make_adjust(ser, offset)
-            if config['freq_adj'] == "1" and check_stable_system:
+            if config['freq_adj'] == "1" and system_status:
                 #Make a frequency adjust at the same time
                 total_steps = ser.freq_adj(False, offset)
                 logfile.info("Total freq_adj steps: {0}".format(total_steps))
             logfile.info("Normal operation is resumed")
-        led.color("green", 1, 0, 00)
         time.sleep(60)
 
 if __name__ == '__main__':
