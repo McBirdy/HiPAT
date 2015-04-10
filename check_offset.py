@@ -14,6 +14,7 @@ import re
 import datetime
 import math
 import logger
+import os
 
 #initialize the logger
 logfile = logger.init_logger('check_offset')
@@ -155,7 +156,7 @@ def get_quality_offset(led = None):
             return 0
         
         # To indicate that an extended get_offset has begun the led will blink green
-        led.colour("Green", 1, 1, 01)  # Will blink
+        led.color("Green", 1, 1, 01)  # Will blink
         
         #Calculate average and std of old dataset
         old_average, old_std = calculate_average_std(offset_list)

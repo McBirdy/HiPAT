@@ -92,25 +92,30 @@ def check_stable_system(led):
     
     # Check status of CRTC and ref_server
     ntpq_info = []  # list to hold both CRTC and ref_server
-    ntpq_info.append(check_offset.get_offset(ref_server= "127.127.20.0", offset=True, jitter=True, reach=True))
-    ntpq_info.append(check_offset.get_offset(jitter=True, reach=True))
+    server = check_offset.get_offset(ref_server= "127.127.20.0", offset=True, jitter=True, reach=True)
+    server["ref_server"] = "127.127.20.0"
+    ntpq_info.append(server)
+    
+    server = check_offset.get_offset(jitter=True, reach=True)
+    server["ref_server"] = config["hipat_reference"]
+    ntpq_info.append(server)
     
     for server in ntpq_info:
         if server['reach'] != 377:                  # If the reach is not 377
-            logfile.warn("Reach for server: {0} is not 377, stable_system set to False").format(server['ref_server'])
+            logfile.warn("Reach for server: {0} is not 377, stable_system set to False".format(server['ref_server']))
             led.color("Yellow", 1, 0, 0)
             db['stable_system'] = False
             db.close()
             return False
         elif server['jitter'] > 1.0:                # If the jitter is higher than 1.0
-            logfile.warn("Jitter for server: {0} is not under 1.0, stable_system set to False").format(server['ref_server'])
+            logfile.warn("Jitter for server: {0} is not under 1.0, stable_system set to False".format(server['ref_server']))
             led.color("Yellow", 1, 0, 0)
             db['stable_system'] = False
             db.close()            
             return False
         elif not (-2.0 < server['offset'] < 2.0):   # If the offset is larger than +- 2.0 ms
-            logfile.warn("Reach for server: {0} is not 377, stable_system set to False").format(server['ref_server'])
-            led.colour("Yellow", 1, 0, 0)
+            logfile.warn("Offset for server: {0} is not within +- 2ms, stable_system set to False".format(server['ref_server']))
+            led.color("Yellow", 1, 0, 0)
             db['stable_system'] = False
             db.close()
             return False

@@ -179,7 +179,7 @@ class Crtc():
             self.ser.close()
             return 1
         #then we wait for the response
-        time.sleep(1)   # Necessary sleep to allow proper receive
+        time.sleep(0.1)   # Necessary sleep to allow proper receive
         try:
             answer = self.receive(response, multiline_response)    
             return answer

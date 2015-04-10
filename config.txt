@@ -1,5 +1,5 @@
 serial_address: "/dev/ttyU0"
-hipat_reference: "158.112.160.8"
+hipat_reference: "158.112.116.44"
 freq_adj: "1"
 temporary_storage: "/mnt/tmpfs"
 sync_check_limit_offset: "0.5"
