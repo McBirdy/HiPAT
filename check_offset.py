@@ -155,9 +155,6 @@ def get_quality_offset(led = None):
             logfile.debug("Reference server not stable (reach != 377), exiting check_offset.")
             return 0
         
-        # To indicate that an extended get_offset has begun the led will blink green
-        led.color("Green", 1, 1, 01)  # Will blink
-        
         #Calculate average and std of old dataset
         old_average, old_std = calculate_average_std(offset_list)
         
@@ -175,6 +172,9 @@ def get_quality_offset(led = None):
             confident_result = True
         else:   #if the new_std is larger than old_std (i.e. not improving) and is below the std_limit
             time.sleep(20)
+            
+            # To indicate that an extended get_offset has begun the led will blink green
+            led.color("Green", 1, 1, 01)  # Will blink
         std_limit += 0.05    #Increase the limit for every loop
         
     return new_average
